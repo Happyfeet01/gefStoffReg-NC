@@ -12,8 +12,14 @@ async function request(path,body,method='POST'){
   return result;
 }
 async function load(){
-  try{const r=await fetch(url('/api/bootstrap'));if(!r.ok)throw Error('Laden fehlgeschlagen.');const data=await r.json();state.products=data.products;state.locations=data.locations;render()}
-  catch(err){notice(err.message,true)}
+  try{
+    const r=await fetch(url('/api/bootstrap'));
+    if(!r.ok){
+      let detail='';try{const body=await r.json();detail=body.error||''}catch{}
+      throw Error(`Laden fehlgeschlagen (HTTP ${r.status})${detail?': '+detail:''}.`);
+    }
+    const data=await r.json();state.products=data.products;state.locations=data.locations;render();$('load-error').hidden=true;
+  }catch(err){$('load-error-text').textContent=err.message;$('load-error').hidden=false;notice(err.message,true)}
 }
 function optionize(select,selected,allLabel){
   select.replaceChildren();if(allLabel)select.add(new Option(allLabel,''));
@@ -103,6 +109,7 @@ $('stock-form').addEventListener('submit',async event=>{
   catch(err){notice(err.message,true)}finally{save.disabled=false}
 });
 $('new-product').addEventListener('click',()=>openProduct());
+$('retry-load').addEventListener('click',load);
 $('add-location').addEventListener('click',async()=>{const name=prompt('Neuer Lagerort (z. B. Technikraum PLB):');if(name===null)return;try{await request('/api/locations',{name});await load();notice('Lagerort angelegt.')}catch(err){notice(err.message,true)}});
 for(const id of ['search','location-filter','hazard-filter'])$(id).addEventListener(id==='search'?'input':'change',render);
 $('stock-location').addEventListener('change',updateStockContext);

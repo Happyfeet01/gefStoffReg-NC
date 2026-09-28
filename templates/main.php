@@ -5,6 +5,7 @@
     <a class="export" id="export-xlsx" href="#" download>Excel exportieren ↗</a>
   </header>
   <main>
+    <div id="load-error" role="alert" hidden><span id="load-error-text"></span><button type="button" id="retry-load">Erneut laden</button></div>
     <section class="hero">
       <div><p class="eyebrow">INVENTAR · FREIBAD FLIEDEN</p><h1>Alles am richtigen Ort.</h1><p>Produkte, Lagerorte und Sicherheitsdatenblätter an einer Stelle erfassen.</p></div>
       <button class="primary" id="new-product">＋ Produkt erfassen</button>

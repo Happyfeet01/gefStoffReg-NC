@@ -19,6 +19,7 @@ use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\Util;
+use Psr\Log\LoggerInterface;
 
 class InventoryController extends Controller {
     private const GROUP = 'freibad-gefahrstoffe';
@@ -41,6 +42,7 @@ class InventoryController extends Controller {
         private IUserSession $session,
         private IGroupManager $groups,
         private IURLGenerator $urls,
+        private LoggerInterface $logger,
     ) {
         parent::__construct($appName, $request);
     }
@@ -157,6 +159,7 @@ class InventoryController extends Controller {
             $locations = array_map(static fn(array $row): array => ['id' => (int)$row['id'], 'name' => $row['name']], $this->rows('gsk_location'));
             return new DataResponse(['products' => array_values($products), 'locations' => $locations]);
         } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Produktdaten konnten nicht geladen werden.', ['exception' => $e]);
             return $this->fail('Daten konnten nicht geladen werden.', 500);
         }
     }

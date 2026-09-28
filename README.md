@@ -2,12 +2,24 @@
 
 Diese **erste native App-Version** integriert das Inventar direkt in die Nextcloud-Navigation. Sie nutzt Nextcloud-Konten statt eines eigenen App-Passworts. Produkte, Lagerorte und Buchungen liegen in der Nextcloud-Datenbank; Fotos und PDFs in der privaten AppData-Ablage dieser Nextcloud-Instanz. Die Dokumente sind über die App für berechtigte Personen zugänglich, aber nicht automatisch im normalen Nextcloud-Dateibereich sichtbar.
 
-## Installation auf einer Testinstanz
+## Installation auf Lars' Testinstanz (wie MediaFetch)
 
-1. Den Ordner `gefahrstoffkataster` aus dem ZIP in einen beschreibbaren Custom-App-Pfad der **Nextcloud-35-Instanz** legen. Ordnername und App-ID müssen `gefahrstoffkataster` bleiben. In einem Docker-Setup muss der App-Ordner im Nextcloud-Container vorhanden sein; eine ZIP-Datei direkt in der App-Verwaltung hochzuladen ist hierfür nicht vorgesehen.
-2. Die Nextcloud-Gruppe `freibad-gefahrstoffe` anlegen und die Mitarbeitenden zuordnen. Administratoren haben ebenfalls Zugriff. Ohne diese Gruppenzugehörigkeit erscheint der Navigationspunkt zwar, aber die App verweigert die Datenansicht.
-3. Als Administrator im Nextcloud-Kontext `php occ app:enable gefahrstoffkataster` ausführen. Nextcloud führt die Datenbankmigration bei der Aktivierung aus. Abweichende Containerbenutzer/Pfade entsprechend deinem Setup einsetzen.
-4. Als Administrator die App öffnen, ein Testprodukt anlegen, einen Bestand buchen und ein Foto aus der Galerie sowie ein SDB-PDF hochladen. Dann die Excel-Datei herunterladen und prüfen.
+Die App wird im vorhandenen Nextcloud-App-Pfad `/var/www/nextcloud/apps` erkannt. **`occ app:enable` installiert sie nicht aus diesem GitHub-Repository:** Fehlt der lokale Ordner, sucht Nextcloud im App-Store und meldet „Could not download app … not found on the appstore“.
+
+```sh
+cd /root
+git clone https://github.com/Happyfeet01/gefStoffReg-NC.git
+install -d /var/www/nextcloud/apps/gefahrstoffkataster
+rsync -a --exclude='.git/' /root/gefStoffReg-NC/ /var/www/nextcloud/apps/gefahrstoffkataster/
+chown -R www-data:www-data /var/www/nextcloud/apps/gefahrstoffkataster
+test -f /var/www/nextcloud/apps/gefahrstoffkataster/appinfo/info.xml
+cd /var/www/nextcloud
+sudo -u www-data php occ app:enable gefahrstoffkataster
+```
+
+Ist `/root/gefStoffReg-NC` bereits geklont, statt `git clone` ein `git -C /root/gefStoffReg-NC pull --ff-only` ausführen. Für diese App sind **kein** `composer install`, `npm install` oder Build nötig; das JavaScript ist bereits im Repository.
+
+Die Nextcloud-Gruppe `freibad-gefahrstoffe` für Mitarbeitende anlegen und sie zuordnen. Administratoren haben ebenfalls Zugriff. Anschließend als Administrator ein Testprodukt anlegen, einen Bestand buchen, ein Foto aus der Galerie und ein SDB-PDF hochladen und den Excel-Export prüfen. Bei einer anderen Nextcloud-Installation zuerst den tatsächlichen App-Pfad in `apps_paths` ermitteln.
 
 **Wichtig:** Dies ist ein Entwicklungsstand für eine Testinstanz. PHP und eine laufende Nextcloud 35 sind in der Erstellungsumgebung nicht verfügbar; die App wurde dort noch nicht installiert oder mit Nextcloud ausgeführt. Vor dem Einsatz mit echten Gefahrstoffdaten sind PHP-Syntaxprüfung (`php -l` auf den PHP-Dateien), Aktivierung, Berechtigungen, Upload und Export an deiner Testinstanz zu prüfen. Ein signiertes App-Store-Paket ist es nicht.
 

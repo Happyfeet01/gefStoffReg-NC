@@ -2,3 +2,4 @@
 
 #gsk-app{min-height:100%;overflow:auto;background:#f4f8f7;color:#193544}
 #gsk-app dialog{position:fixed}
+#gsk-app #scan-dialog #scan-status{margin:12px 26px 0;font-size:14px;font-weight:700;color:#174e68;line-height:1.4}

@@ -1,4 +1,4 @@
-const state = {products:[],locations:[],current:null,stockProduct:null,stream:null,scanning:false};
+const state = {products:[],locations:[],current:null,stockProduct:null,scannerControls:null,scanning:false};
 const $ = id => document.getElementById(id);
 const url = path => OC.generateUrl('/apps/gefahrstoffkataster'+path);
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
@@ -108,19 +108,49 @@ for(const id of ['search','location-filter','hazard-filter'])$(id).addEventListe
 $('stock-location').addEventListener('change',updateStockContext);
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.close)));
 document.querySelectorAll('dialog').forEach(d=>d.addEventListener('close',()=>{if(d.id==='scan-dialog')stopScanner()}));
-function stopScanner(){state.scanning=false;state.stream?.getTracks().forEach(t=>t.stop());state.stream=null;$('scan-video').srcObject=null}
+function stopScanner(){
+  state.scanning=false;
+  state.scannerControls?.stop();
+  state.scannerControls=null;
+  const video=$('scan-video');
+  video.srcObject?.getTracks().forEach(track=>track.stop());
+  video.srcObject=null;
+}
 async function scan(){
-  if(!('BarcodeDetector' in window)||!navigator.mediaDevices?.getUserMedia){notice('Barcode-Scan hier nicht verfügbar. Bitte EAN eingeben.',true);return}
+  if(state.scanning)return;
+  $('scan-status').textContent='Kamera wird geöffnet …';
+  show('scan-dialog');
+  state.scanning=true;
+  if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){
+    state.scanning=false;
+    $('scan-status').textContent='Kamera nicht verfügbar. Öffne Nextcloud über HTTPS oder gib die Nummer selbst ein.';
+    return;
+  }
+  if(!window.GefahrstoffScanner?.start){
+    state.scanning=false;
+    $('scan-status').textContent='Scanner konnte nicht geladen werden. Bitte die Seite neu laden oder die Nummer selbst eingeben.';
+    return;
+  }
   try{
-    const supported=await BarcodeDetector.getSupportedFormats();const formats=['ean_13','ean_8','upc_a','code_128'].filter(x=>supported.includes(x));
-    if(!formats.length)throw Error('Keine passenden Barcodeformate verfügbar.');
-    const detector=new BarcodeDetector({formats});show('scan-dialog');
-    state.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
-    const video=$('scan-video');video.srcObject=state.stream;await video.play();state.scanning=true;
-    while(state.scanning){const result=await detector.detect(video);if(result.length){$('product-form').elements.ean.value=result[0].rawValue;close('scan-dialog');notice('Barcode übernommen.');break}await new Promise(r=>setTimeout(r,350))}
-  }catch(err){notice('Kamera/Scan: '+err.message,true);close('scan-dialog')}
+    const controls=await window.GefahrstoffScanner.start($('scan-video'),value=>{
+      if(!state.scanning)return;
+      $('product-form').elements.ean.value=value;
+      close('scan-dialog');
+      notice('Barcode übernommen.');
+    });
+    if(!state.scanning){controls.stop();return}
+    state.scannerControls=controls;
+    $('scan-status').textContent='Barcode vor die Kamera halten …';
+  }catch(err){
+    if(!state.scanning)return;
+    stopScanner();
+    $('scan-status').textContent=err.name==='NotAllowedError'
+      ? 'Kamerazugriff verweigert. Bitte in den Browser-Einstellungen erlauben oder die Nummer selbst eingeben.'
+      : 'Kamera konnte nicht geöffnet werden: '+err.message;
+  }
 }
 $('scan-button').addEventListener('click',scan);
+$('scan-manual').addEventListener('click',()=>{close('scan-dialog');$('product-form').elements.ean.focus()});
 $('export-xlsx').href=url('/api/export/xlsx');
 $('export-csv').href=url('/api/export/csv');
 load();

@@ -46,6 +46,6 @@
     </form>
   </dialog>
 
-  <dialog id="scan-dialog"><div class="dialog-head"><h2>Barcode scannen</h2><button class="close" type="button" data-close="scan-dialog" aria-label="Schließen">×</button></div><video id="scan-video" autoplay playsinline muted></video><p class="hint">Kamera über HTTPS öffnen. Falls dein Browser das Scannen nicht unterstützt, die EAN per Hand eingeben.</p></dialog>
+  <dialog id="scan-dialog"><div class="dialog-head"><h2>Barcode scannen</h2><button class="close" type="button" data-close="scan-dialog" aria-label="Schließen">×</button></div><video id="scan-video" autoplay playsinline muted></video><p id="scan-status" role="status" aria-live="polite">Kamera wird geöffnet …</p><p class="hint">Richte die Rückkamera auf den Strichcode. Die erkannte Nummer wird ins EAN-Feld übernommen.</p><div class="dialog-actions"><button type="button" class="secondary" id="scan-manual">Nummer selbst eingeben</button></div></dialog>
   
 </div>

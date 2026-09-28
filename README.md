@@ -17,7 +17,9 @@ cd /var/www/nextcloud
 sudo -u www-data php occ app:enable gefahrstoffkataster
 ```
 
-Ist `/root/gefStoffReg-NC` bereits geklont, statt `git clone` ein `git -C /root/gefStoffReg-NC pull --ff-only` ausführen. Für diese App sind **kein** `composer install`, `npm install` oder Build nötig; das JavaScript ist bereits im Repository.
+Ist `/root/gefStoffReg-NC` bereits geklont, statt `git clone` ein `git -C /root/gefStoffReg-NC pull --ff-only` ausführen. Für diese App sind **kein** `composer install`, `npm install` oder Build nötig; das JavaScript einschließlich Scanner ist bereits im Repository.
+
+Nach einem Update des geklonten Ordners den `rsync`- und `chown`-Befehl erneut ausführen, dann im Nextcloud-Verzeichnis `sudo -u www-data php occ upgrade` aufrufen. Anschließend die App-Seite auf dem Smartphone neu laden.
 
 Die Nextcloud-Gruppe `freibad-gefahrstoffe` für Mitarbeitende anlegen und sie zuordnen. Administratoren haben ebenfalls Zugriff. Anschließend als Administrator ein Testprodukt anlegen, einen Bestand buchen, ein Foto aus der Galerie und ein SDB-PDF hochladen und den Excel-Export prüfen. Bei einer anderen Nextcloud-Installation zuerst den tatsächlichen App-Pfad in `apps_paths` ermitteln.
 
@@ -26,6 +28,8 @@ Die Nextcloud-Gruppe `freibad-gefahrstoffe` für Mitarbeitende anlegen und sie z
 ## Nutzung auf dem iPhone
 
 Nach dem Login in deine Nextcloud „Gefahrstoffe“ öffnen. In der Produktmaske gibt es **Bilder aus der Galerie** (mehrere Bilder auswählbar) und **Direkt fotografieren** (öffnet die Kamera). Ein SDB kann separat als PDF aus „Dateien“ ausgewählt werden. Die Nextcloud muss für Kameranutzung über HTTPS erreichbar sein. Ein Bild darf maximal 8 MB, ein PDF maximal 15 MB groß sein; PHPs `upload_max_filesize` und `post_max_size` müssen dazu passen. HEIC, JPEG, PNG und WebP werden anhand des tatsächlichen Dateityps geprüft.
+
+**EAN-Scanner:** „Scannen“ öffnet ein Fenster mit Kameravorschau und einer sichtbaren Statusmeldung. Der mitgelieferte ZXing-Decoder erkennt EAN-13, EAN-8, UPC-A und Code 128 direkt im Browser, auch wenn `BarcodeDetector` dort fehlt. Der Scan übernimmt nur die Nummer in das Formular. Er lädt kein Kameravideo hoch und fragt keine externe Produktdatenbank ab. Bei fehlender Kameraberechtigung lässt sich die Nummer im selben Ablauf von Hand eingeben. Die Scannerdatei `js/scanner.js` liegt bereits bei; für eine Änderung an `js/scanner-source.js` ist `npm ci && npm run build:scanner` nötig. Die Lizenztexte der eingebundenen Bibliotheken liegen unter `docs/third-party`.
 
 ## Funktionen und Grenzen
 

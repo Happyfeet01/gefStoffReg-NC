@@ -121,6 +121,7 @@ class InventoryController extends Controller {
             return $this->denied();
         }
         Util::addStyle('gefahrstoffkataster', 'style');
+        Util::addScript('gefahrstoffkataster', 'scanner');
         Util::addScript('gefahrstoffkataster', 'app');
         return new TemplateResponse('gefahrstoffkataster', 'main');
     }

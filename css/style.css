@@ -5,3 +5,7 @@
 #gsk-app #scan-dialog #scan-status{margin:12px 26px 0;font-size:14px;font-weight:700;color:#174e68;line-height:1.4}
 #gsk-app #load-error:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;padding:14px 18px;background:#fff0ed;color:#893520;border:1px solid #ddaa9c;border-radius:10px;line-height:1.4}
 #gsk-app #load-error button{background:#893520;color:#fff;border:0;border-radius:7px;padding:9px 12px;font-weight:700;white-space:nowrap}
+#gsk-app #scan-controls{display:flex;gap:9px;flex-wrap:wrap;margin:13px 26px 0}
+#gsk-app #scan-controls button[hidden]{display:none}
+#gsk-app #scan-dialog .scan-actions{flex-wrap:wrap}
+#gsk-app #scan-dialog .scan-actions button{white-space:normal}

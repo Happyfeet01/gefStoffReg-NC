@@ -1,4 +1,4 @@
-const state = {products:[],locations:[],current:null,stockProduct:null,scannerControls:null,scanning:false};
+const state = {products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
 const $ = id => document.getElementById(id);
 const url = path => OC.generateUrl('/apps/gefahrstoffkataster'+path);
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
@@ -117,15 +117,35 @@ document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',
 document.querySelectorAll('dialog').forEach(d=>d.addEventListener('close',()=>{if(d.id==='scan-dialog')stopScanner()}));
 function stopScanner(){
   state.scanning=false;
-  state.scannerControls?.stop();
+  try{state.scannerControls?.stop()?.catch?.(()=>{})}catch{}
   state.scannerControls=null;
+  state.cameraTrack=null;
+  state.torchOn=false;
+  $('scan-focus').hidden=true;
+  $('scan-torch').hidden=true;
+  $('scan-torch').textContent='Blitz ein';
   const video=$('scan-video');
   video.srcObject?.getTracks().forEach(track=>track.stop());
   video.srcObject=null;
 }
+async function configureScanCamera(controls){
+  const track=$('scan-video').srcObject?.getVideoTracks()[0];
+  if(!track||!state.scanning)return;
+  state.cameraTrack=track;
+  let capabilities={};
+  try{capabilities=track.getCapabilities?.()||{}}catch{}
+  const focusModes=Array.isArray(capabilities.focusMode)?capabilities.focusMode:[];
+  if(focusModes.includes('continuous')){
+    try{await track.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch{}
+  }
+  if(!state.scanning)return;
+  $('scan-focus').hidden=!focusModes.includes('single-shot');
+  $('scan-torch').hidden=!(capabilities.torch===true&&typeof controls.switchTorch==='function');
+}
 async function scan(){
   if(state.scanning)return;
   $('scan-status').textContent='Kamera wird geöffnet …';
+  $('scan-focus').hidden=true;$('scan-torch').hidden=true;
   show('scan-dialog');
   state.scanning=true;
   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){
@@ -145,9 +165,10 @@ async function scan(){
       close('scan-dialog');
       notice('Barcode übernommen.');
     });
-    if(!state.scanning){controls.stop();return}
+    if(!state.scanning){try{await controls.stop()}catch{}return}
     state.scannerControls=controls;
     $('scan-status').textContent='Barcode vor die Kamera halten …';
+    await configureScanCamera(controls);
   }catch(err){
     if(!state.scanning)return;
     stopScanner();
@@ -157,6 +178,42 @@ async function scan(){
   }
 }
 $('scan-button').addEventListener('click',scan);
+$('scan-focus').addEventListener('click',async()=>{
+  if(!state.cameraTrack)return;
+  try{await state.cameraTrack.applyConstraints({advanced:[{focusMode:'single-shot'}]});$('scan-status').textContent='Fokus wird neu eingestellt …'}
+  catch{$('scan-status').textContent='Fokussteuerung nicht verfügbar. Bitte den Barcode fotografieren.';$('scan-focus').hidden=true}
+});
+$('scan-torch').addEventListener('click',async()=>{
+  if(!state.scannerControls?.switchTorch)return;
+  try{
+    const turnOn=!state.torchOn;
+    await state.scannerControls.switchTorch(turnOn);
+    state.torchOn=turnOn;
+    $('scan-torch').textContent=turnOn?'Blitz aus':'Blitz ein';
+  }catch{$('scan-torch').hidden=true;$('scan-status').textContent='Blitz in diesem Browser nicht verfügbar. Bitte den Barcode fotografieren.'}
+});
+$('scan-photo-button').addEventListener('click',()=>{
+  stopScanner();
+  $('scan-status').textContent='Foto mit der Kamera aufnehmen …';
+  $('scan-photo-input').value='';
+  $('scan-photo-input').click();
+});
+$('scan-photo-input').addEventListener('change',async event=>{
+  const file=event.currentTarget.files?.[0];
+  if(!file||!$('scan-dialog').open)return;
+  $('scan-status').textContent='Barcode im Foto wird gesucht …';
+  try{
+    if(!window.GefahrstoffScanner?.decodePhoto)throw Error('Scanner nicht geladen');
+    const value=await window.GefahrstoffScanner.decodePhoto(file);
+    if(!$('scan-dialog').open)return;
+    $('product-form').elements.ean.value=value;
+    close('scan-dialog');
+    notice('Barcode aus Foto übernommen.');
+  }catch{
+    if($('scan-dialog').open)$('scan-status').textContent='Im Foto kein Barcode erkannt. Bitte näher und scharf fotografieren oder die Nummer eingeben.';
+  }finally{event.currentTarget.value=''}
+});
+$('scan-photo-input').addEventListener('cancel',()=>{$('scan-status').textContent='Kein Foto aufgenommen. Du kannst es erneut versuchen oder die Nummer eingeben.'});
 $('scan-manual').addEventListener('click',()=>{close('scan-dialog');$('product-form').elements.ean.focus()});
 $('export-xlsx').href=url('/api/export/xlsx');
 $('export-csv').href=url('/api/export/csv');

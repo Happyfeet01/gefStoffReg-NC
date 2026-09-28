@@ -129,6 +129,7 @@ class InventoryController extends Controller {
     }
 
     #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function bootstrap(): DataResponse {
         if (!$this->permitted()) return $this->denied();
         try {

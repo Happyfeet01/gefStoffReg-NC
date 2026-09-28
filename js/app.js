@@ -58,6 +58,7 @@ function close(id){$(id).close();if(id==='scan-dialog')stopScanner()}
 function openProduct(p=null){
   state.current=p;
   const f=$('product-form');f.reset();$('photo-gallery').value='';$('photo-camera').value='';$('sds-file').value='';
+  $('lookup-result').hidden=true;$('lookup-result').replaceChildren();
   $('dialog-title').textContent=p?'Produkt bearbeiten':'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));
@@ -67,6 +68,70 @@ function openProduct(p=null){
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   show('product-dialog');
 }
+function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
+async function lookupEan(){
+  const ean=$('product-form').elements.ean.value.trim();
+  if(!/^[0-9]{8,14}$/.test(ean)){lookupMessage('Bitte zuerst eine EAN/GTIN mit 8 bis 14 Ziffern scannen oder eingeben.');return}
+  const button=$('lookup-button');button.disabled=true;
+  lookupMessage('Suche zuerst im Bestand, danach in Open Products Facts …');
+  try{
+    const response=await fetch(url('/api/lookup/'+encodeURIComponent(ean)));
+    const data=await response.json();if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);
+    if($('product-form').elements.ean.value.trim()!==ean)return;
+    if(data.match==='local'){
+      const box=lookupMessage('Dieses Produkt ist bereits im eigenen Bestand: '+data.name+'.');
+      const existing=state.products.find(p=>p.id===data.id);
+      if(existing)box.append(buttonElement('Vorhandenes Produkt öffnen',()=>{close('product-dialog');openProduct(existing)}));
+    }else if(data.match==='external'){
+      const box=lookupMessage('Vorschlag von Open Products Facts: '+[data.name,data.manufacturer].filter(Boolean).join(' · ')+'. Bitte mit dem Etikett abgleichen.');
+      if(data.name||data.manufacturer)box.append(buttonElement('Vorschlag übernehmen',()=>{
+        const f=$('product-form');if(data.name)f.elements.name.value=data.name;if(data.manufacturer)f.elements.manufacturer.value=data.manufacturer;
+        lookupMessage('Name und Marke übernommen. Hersteller, Produktvariante und alle Gefahrstoffangaben selbst prüfen.');
+      }));
+      const link=el('a','', 'Quelle ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+    }else lookupMessage('Zu dieser EAN kein Eintrag gefunden. Produkt bitte anhand des Etiketts ergänzen.');
+  }catch(err){lookupMessage(err.message)}finally{button.disabled=false}
+}
+function buttonElement(label,action){const b=button(label,action);b.className='secondary';return b}
+$('lookup-button').addEventListener('click',lookupEan);
+async function searchName(){
+  const query=$('product-form').elements.name.value.trim();
+  if(query.length<3){lookupMessage('Bitte erst einen Produktnamen eingeben oder eine erkannte Etikettzeile auswählen.');return}
+  const action=$('name-search-button');action.disabled=true;lookupMessage('Suche nach Produktvorschlägen …');
+  try{
+    const result=await request('/api/search',{query});
+    const box=lookupMessage(result.matches.length?'Mögliche Treffer in Open Products Facts. Bitte genaue Variante und EAN mit dem Etikett abgleichen.':'Keine passenden Produktvorschläge gefunden. Angaben bitte selbst eintragen.');
+    for(const match of result.matches){
+      box.append(buttonElement([match.name||'Ohne Name',match.manufacturer,match.ean].filter(Boolean).join(' · '),()=>{
+        const f=$('product-form');if(match.name)f.elements.name.value=match.name;
+        if(match.manufacturer)f.elements.manufacturer.value=match.manufacturer;
+        f.elements.ean.value=match.ean;
+        lookupMessage('Vorschlag übernommen. EAN und Produktvariante prüfen; Gefahrstoffangaben nur aus passendem SDB übernehmen.');
+      }));
+    }
+  }catch(err){lookupMessage(err.message)}finally{action.disabled=false}
+}
+$('name-search-button').addEventListener('click',searchName);
+$('product-form').elements.ean.addEventListener('change',()=>{if($('product-form').elements.ean.value.trim())lookupEan()});
+$('label-button').addEventListener('click',()=>$('label-input').click());
+$('label-input').addEventListener('change',async event=>{
+  const file=event.currentTarget.files?.[0];if(!file)return;
+  const box=lookupMessage('Etiketttext wird auf deinem Nextcloud-Server erkannt …');
+  try{
+    const data=new FormData();data.set('file',file,file.name);
+    const response=await fetch(url('/api/label'),{method:'POST',headers:{requesttoken:OC.requestToken},body:data});
+    const result=await response.json();if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);
+    box.replaceChildren(el('p','','Erkannte Zeilen: Wähle den Produktnamen aus. Bitte Text und Variante auf dem Etikett prüfen.'));
+    const lines=result.lines||[];
+    if(!lines.length)box.append(el('p','','Kein lesbarer Text gefunden. Bitte ein scharfes Foto aufnehmen oder Angaben selbst eintragen.'));
+    for(const line of lines.slice(0,20))box.append(buttonElement(line.slice(0,160),()=>{$('product-form').elements.name.value=line.slice(0,160);notice('Produktname aus Etikett übernommen.')}));
+    const search=el('a','', 'Produkt beim Hersteller suchen ↗');
+    search.href='https://www.google.com/search?q='+encodeURIComponent(lines.slice(0,2).join(' ')+' Sicherheitsdatenblatt Hersteller');
+    search.target='_blank';search.rel='noopener noreferrer';box.append(search);
+    const possibleEan=lines.join(' ').match(/\b\d{8,14}\b/);
+    if(possibleEan)box.append(buttonElement('Erkannte EAN '+possibleEan[0]+' suchen',()=>{$('product-form').elements.ean.value=possibleEan[0];lookupEan()}));
+  }catch(err){lookupMessage(err.message+' Du kannst die Angaben weiterhin von Hand eintragen.')}finally{event.currentTarget.value=''}
+});
 function openStock(p){
   state.stockProduct=p;$('stock-form').reset();$('stock-title').textContent=p.name;
   optionize($('stock-location'),String(p.stock.find(s=>s.packs>0)?.location_id||state.locations[0]?.id||''));
@@ -164,6 +229,7 @@ async function scan(){
       $('product-form').elements.ean.value=value;
       close('scan-dialog');
       notice('Barcode übernommen.');
+      lookupEan();
     });
     if(!state.scanning){try{await controls.stop()}catch{}return}
     state.scannerControls=controls;
@@ -209,6 +275,7 @@ $('scan-photo-input').addEventListener('change',async event=>{
     $('product-form').elements.ean.value=value;
     close('scan-dialog');
     notice('Barcode aus Foto übernommen.');
+    lookupEan();
   }catch{
     if($('scan-dialog').open)$('scan-status').textContent='Im Foto kein Barcode erkannt. Bitte näher und scharf fotografieren oder die Nummer eingeben.';
   }finally{event.currentTarget.value=''}

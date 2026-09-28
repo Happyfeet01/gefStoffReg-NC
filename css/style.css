@@ -9,3 +9,10 @@
 #gsk-app #scan-controls button[hidden]{display:none}
 #gsk-app #scan-dialog .scan-actions{flex-wrap:wrap}
 #gsk-app #scan-dialog .scan-actions button{white-space:normal}
+#gsk-app .lookup-tools{display:flex;gap:8px;flex-wrap:wrap}
+#gsk-app .lookup-tools button{white-space:normal}
+#gsk-app .lookup-result{background:#eef7f7;border:1px solid #c9e2e3;border-radius:10px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;line-height:1.4}
+#gsk-app .lookup-result[hidden]{display:none}
+#gsk-app .lookup-result p{width:100%;margin:0 0 4px}
+#gsk-app .lookup-result button{white-space:normal;text-align:left;padding:8px 10px}
+#gsk-app .lookup-result a{padding:8px 2px}

@@ -13,6 +13,7 @@ use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\Files\IAppData;
 use OCP\Files\NotFoundException;
+use OCP\Http\Client\IClientService;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -43,6 +44,7 @@ class InventoryController extends Controller {
         private IGroupManager $groups,
         private IURLGenerator $urls,
         private LoggerInterface $logger,
+        private IClientService $clientService,
     ) {
         parent::__construct($appName, $request);
     }
@@ -162,6 +164,98 @@ class InventoryController extends Controller {
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Produktdaten konnten nicht geladen werden.', ['exception' => $e]);
             return $this->fail('Daten konnten nicht geladen werden.', 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function lookup(string $ean): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        if (!preg_match('/^[0-9]{8,14}$/D', $ean)) return $this->fail('Bitte eine gültige EAN/GTIN mit 8 bis 14 Ziffern eingeben.');
+        foreach ($this->rows('gsk_product') as $row) {
+            $product = json_decode($row['details'], true);
+            if (($product['ean'] ?? '') === $ean) {
+                return new DataResponse(['match' => 'local', 'id' => (int)$row['id'], 'name' => $product['name'] ?? '']);
+            }
+        }
+        try {
+            $response = $this->clientService->newClient()->get('https://world.openproductsfacts.org/api/v2/product/' . $ean . '?fields=code,product_name,product_name_de,brands', [
+                'timeout' => 6,
+                'headers' => ['User-Agent' => 'Gefahrstoffkataster/0.1.5 (https://github.com/Happyfeet01/gefStoffReg-NC)'],
+            ]);
+            $data = json_decode($response->getBody(), true, 16, JSON_THROW_ON_ERROR);
+            if (empty($data['status']) || !is_array($data['product'] ?? null)) return new DataResponse(['match' => 'none']);
+            $product = $data['product'];
+            $name = trim((string)(($product['product_name_de'] ?? '') ?: ($product['product_name'] ?? '')));
+            $brand = trim((string)($product['brands'] ?? ''));
+            return new DataResponse(['match' => 'external', 'name' => mb_substr($name, 0, 160),
+                'manufacturer' => mb_substr($brand, 0, 120), 'source' => 'Open Products Facts',
+                'source_url' => 'https://world.openproductsfacts.org/product/' . $ean]);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Gefahrstoffkataster: EAN-Suche nicht verfügbar.', ['exception' => $e]);
+            return $this->fail('Externe Produktsuche gerade nicht erreichbar. EAN bleibt eingetragen.', 503);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function searchName(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        try {
+            $query = trim((string)($this->payload()['query'] ?? ''));
+            if (mb_strlen($query) < 3 || mb_strlen($query) > 100) return $this->fail('Suchbegriff muss 3 bis 100 Zeichen lang sein.');
+            $response = $this->clientService->newClient()->get('https://world.openproductsfacts.org/cgi/search.pl?' . http_build_query([
+                'search_terms' => $query, 'search_simple' => '1', 'action' => 'process',
+                'json' => '1', 'page_size' => '5', 'fields' => 'code,product_name,product_name_de,brands',
+            ]), ['timeout' => 7, 'headers' => ['User-Agent' => 'Gefahrstoffkataster/0.1.5 (https://github.com/Happyfeet01/gefStoffReg-NC)']]);
+            $data = json_decode($response->getBody(), true, 16, JSON_THROW_ON_ERROR);
+            $matches = [];
+            foreach (($data['products'] ?? []) as $product) {
+                if (!is_array($product) || !preg_match('/^[0-9]{8,14}$/D', (string)($product['code'] ?? ''))) continue;
+                $matches[] = [
+                    'ean' => (string)$product['code'],
+                    'name' => mb_substr(trim((string)(($product['product_name_de'] ?? '') ?: ($product['product_name'] ?? ''))), 0, 160),
+                    'manufacturer' => mb_substr(trim((string)($product['brands'] ?? '')), 0, 120),
+                ];
+            }
+            return new DataResponse(['matches' => $matches]);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Gefahrstoffkataster: Namenssuche nicht verfügbar.', ['exception' => $e]);
+            return $this->fail('Externe Produktsuche gerade nicht erreichbar.', 503);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function readLabel(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        $upload = $this->request->getUploadedFile('file');
+        if (!is_array($upload) || (int)($upload['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string)($upload['tmp_name'] ?? ''))) return $this->fail('Etikettfoto konnte nicht gelesen werden.');
+        $path = (string)$upload['tmp_name'];
+        $size = filesize($path);
+        if (!$size || $size > 8 * 1024 * 1024) return $this->fail('Etikettfoto darf maximal 8 MB groß sein.');
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+        if (!in_array($mime, ['image/jpeg','image/png','image/webp','image/heic','image/heif'], true)) return $this->fail('Bildformat nicht unterstützt.');
+        if (in_array($mime, ['image/jpeg','image/png','image/webp'], true)) {
+            $dimensions = @getimagesize($path);
+            if (!$dimensions || $dimensions[0] * $dimensions[1] > 24000000) return $this->fail('Bildauflösung für Texterkennung zu groß oder ungültig.');
+        }
+        if (!function_exists('proc_open')) return $this->fail('Texterkennung ist auf diesem Server nicht aktiviert.', 503);
+        try {
+            $pipes = [];
+            $process = @proc_open(['/usr/bin/timeout', '15s', 'tesseract', $path, 'stdout', '-l', 'deu+eng', '--psm', '11'],
+                [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']], $pipes);
+            if (!is_resource($process)) return $this->fail('Texterkennung fehlt auf dem Server (Tesseract und Sprachdaten deu/eng).', 503);
+            fclose($pipes[0]);
+            $text = stream_get_contents($pipes[1], 8192); fclose($pipes[1]);
+            $error = stream_get_contents($pipes[2], 1024); fclose($pipes[2]);
+            if (proc_close($process) !== 0) {
+                $this->logger->warning('Gefahrstoffkataster: OCR fehlgeschlagen.', ['detail' => $error]);
+                return $this->fail('Texterkennung fehlgeschlagen. Tesseract und deutsche Sprachdaten auf dem Server prüfen.', 503);
+            }
+            $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', (string)$text) ?: []), static fn(string $line): bool => mb_strlen($line) > 2));
+            return new DataResponse(['lines' => array_slice($lines, 0, 40)]);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Gefahrstoffkataster: OCR nicht verfügbar.', ['exception' => $e]);
+            return $this->fail('Texterkennung ist auf diesem Server nicht verfügbar.', 503);
         }
     }
 

@@ -89,8 +89,14 @@ async function lookupEan(){
         lookupMessage('Name und Marke übernommen. Hersteller, Produktvariante und alle Gefahrstoffangaben selbst prüfen.');
       }));
       const link=el('a','', 'Quelle ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
-    }else lookupMessage('Zu dieser EAN kein Eintrag gefunden. Produkt bitte anhand des Etiketts ergänzen.');
-  }catch(err){lookupMessage(err.message)}finally{button.disabled=false}
+    }else{
+      const box=lookupMessage('In Open Products Facts kein Treffer. Diese Datenbank enthält viele Spezialprodukte nicht.');
+      const link=el('a','', 'EAN im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+    }
+  }catch(err){
+    const box=lookupMessage(err.message);
+    const link=el('a','', 'EAN im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  }finally{button.disabled=false}
 }
 function buttonElement(label,action){const b=button(label,action);b.className='secondary';return b}
 $('lookup-button').addEventListener('click',lookupEan);

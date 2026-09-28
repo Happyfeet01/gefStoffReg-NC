@@ -192,6 +192,9 @@ class InventoryController extends Controller {
                 'manufacturer' => mb_substr($brand, 0, 120), 'source' => 'Open Products Facts',
                 'source_url' => 'https://world.openproductsfacts.org/product/' . $ean]);
         } catch (\Throwable $e) {
+            if (method_exists($e, 'getResponse') && $e->getResponse()?->getStatusCode() === 404) {
+                return new DataResponse(['match' => 'none']);
+            }
             $this->logger->warning('Gefahrstoffkataster: EAN-Suche nicht verfügbar.', ['exception' => $e]);
             return $this->fail('Externe Produktsuche gerade nicht erreichbar. EAN bleibt eingetragen.', 503);
         }

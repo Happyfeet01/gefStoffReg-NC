@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+  <id>gefahrstoffkataster</id>
+  <name>Gefahrstoffkataster</name>
+  <summary>Betriebsstoffe und Gefahrstoffe im Freibad erfassen</summary>
+  <description>Mobiles Inventar mit Lagerorten, Bestandsbuchungen, Produktfotos, Sicherheitsdatenblättern und Tabellenexport.</description>
+  <version>0.1.0</version>
+  <licence>AGPL-3.0-or-later</licence>
+  <author>Lars / Projekt Freibad Landrücken</author>
+  <category>tools</category>
+  <dependencies><nextcloud min-version="35" max-version="35" /></dependencies>
+  <navigations>
+    <navigation><name>Gefahrstoffe</name><route>gefahrstoffkataster.inventory.index</route><order>60</order><icon>app.svg</icon></navigation>
+  </navigations>
+</info>

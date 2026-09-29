@@ -64,6 +64,7 @@ function openProduct(p=null){
   const f=$('product-form');f.reset();$('photo-gallery').value='';$('photo-camera').value='';$('sds-file').value='';
   $('lookup-result').hidden=true;$('lookup-result').replaceChildren();
   $('source-result').hidden=true;$('source-result').replaceChildren();
+  $('sds-research-result').hidden=true;$('sds-research-result').replaceChildren();
   $('dialog-title').textContent=p?'Produkt bearbeiten':'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));
@@ -75,6 +76,7 @@ function openProduct(p=null){
 }
 function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
 function sourceMessage(message){const box=$('source-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
+function sdsMessage(message){const box=$('sds-research-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
 async function lookupEan(){
   const ean=$('product-form').elements.ean.value.trim();
   if(!/^[0-9]{8,14}$/.test(ean)){lookupMessage('Bitte zuerst eine EAN/GTIN mit 8 bis 14 Ziffern scannen oder eingeben.');return}
@@ -171,6 +173,60 @@ async function searchName(){
   }catch(err){lookupMessage(err.message)}finally{action.disabled=false}
 }
 $('name-search-button').addEventListener('click',searchName);
+async function researchProduct(){
+  const f=$('product-form'),query=f.elements.name.value.trim(),manufacturer=f.elements.manufacturer.value.trim();
+  if(query.length<4){lookupMessage('Bitte zuerst den Produktnamen eingeben, zum Beispiel „Hartmann Bacillol Desinfektionstücher“.');return}
+  const action=$('research-button');action.disabled=true;
+  lookupMessage('Suche online nach Herstellerseiten und konkreten Produktvarianten …');
+  try{
+    const result=await request('/api/research',{query,manufacturer});
+    if(f.elements.name.value.trim()!==query)return;
+    const box=lookupMessage(result.matches?.length?'Mögliche Varianten aus der Websuche. Bitte Etikett, Artikelnummer und Packung vor der Übernahme vergleichen.':'Kein belegter Treffer zur eingegebenen Produktvariante. Bitte Suchbegriff präzisieren.');
+    for(const match of result.matches||[]){
+      const card=el('div','research-match');
+      card.append(el('strong','',match.name));
+      card.append(el('span','',[match.manufacturer,match.article&&`Art. ${match.article}`,match.pack_size&&`${format(match.pack_size)} ${match.unit}`].filter(Boolean).join(' · ')));
+      if(match.match_note)card.append(el('small','',match.match_note));
+      const link=el('a','','Quelle prüfen ↗');link.href=match.source_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);
+      card.append(buttonElement('Diese Variante übernehmen',()=>{
+        f.elements.name.value=match.name;
+        if(match.manufacturer)f.elements.manufacturer.value=match.manufacturer;
+        if(match.article)f.elements.article.value=match.article;
+        if(match.pack_size){f.elements.pack_size.value=match.pack_size;f.elements.unit.value=match.unit}
+        f.elements.source_url.value=match.source_url;
+        lookupMessage('Stammdaten übernommen. Bitte Gebindegröße und Artikelnummer mit dem Etikett abgleichen. Einstufung und H-Sätze nur aus dem passenden SDB ergänzen.');
+      }));
+      box.append(card);
+    }
+  }catch(err){
+    const box=lookupMessage(err.message);
+    const link=el('a','','Produkt selbst im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent([manufacturer,query].filter(Boolean).join(' '));link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  }finally{action.disabled=false}
+}
+$('research-button').addEventListener('click',researchProduct);
+$('sds-research-button').addEventListener('click',async()=>{
+  const f=$('product-form'),query=f.elements.name.value.trim(),manufacturer=f.elements.manufacturer.value.trim();
+  if(query.length<4){sdsMessage('Bitte zuerst den genauen Produktnamen und möglichst den Hersteller eintragen.');return}
+  const action=$('sds-research-button');action.disabled=true;sdsMessage('Suche nach einem offiziellen SDB zur konkreten Produktvariante …');
+  try{
+    const result=await request('/api/research',{query,manufacturer,mode:'sds'});
+    if(f.elements.name.value.trim()!==query)return;
+    const box=sdsMessage(result.matches?.length?'Mögliche Sicherheitsdatenblätter. Bitte Herausgeber, Variante und Ausgabedatum im PDF prüfen.':'Kein belegter SDB-Link gefunden. Bitte direkt beim Hersteller oder Lieferanten anfordern.');
+    for(const match of result.matches||[]){
+      if(!match.sds_url)continue;
+      const card=el('div','research-match');card.append(el('strong','',match.name));
+      if(match.match_note)card.append(el('small','',match.match_note));
+      const link=el('a','','Gefundenes Dokument prüfen ↗');link.href=match.sds_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);
+      card.append(buttonElement('Geprüften SDB-Link übernehmen',()=>{
+        f.elements.sds_url.value=match.sds_url;
+        sdsMessage('SDB-Link übernommen. Variante und Ausgabedatum im Dokument prüfen; das PDF kannst du zusätzlich unten hochladen.');
+      }));box.append(card);
+    }
+  }catch(err){
+    const box=sdsMessage(err.message);
+    const link=el('a','','SDB selbst im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent([manufacturer,query,'Sicherheitsdatenblatt PDF'].filter(Boolean).join(' '));link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  }finally{action.disabled=false}
+});
 $('manufacturer-search').addEventListener('click',()=>{
   const f=$('product-form');const terms=[f.elements.article.value,f.elements.name.value,f.elements.manufacturer.value].map(x=>x.trim()).filter(Boolean);
   if(!terms.length){sourceMessage('Bitte erst Produktname, Artikelnummer oder Hersteller eingeben.');return}

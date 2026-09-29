@@ -45,11 +45,28 @@ Ab 0.1.9 können das SDB und das Produktmerkblatt als getrennte Links direkt bei
 
 Seit 0.1.11 wird ein JPEG/PNG/WebP-Etikettfoto vor der Texterkennung im Browser auf den mittleren Etikettbereich zugeschnitten, vergrößert und kontrastreicher gemacht. Wenn die Bildverarbeitung fehlschlägt, wird das Original gesendet. Ein deutlich lesbares „Geschirrspülmittel Zitrone“ und eine einzeln stehende Füllmenge wie „1 L“ können so als Stammdaten vorgeschlagen werden. Die Erkennung ist weiterhin OCR, keine Google-Lens-Bildsuche: Sie kann Logos und Schriften falsch lesen; den Treffer und die genaue Variante immer vor dem Speichern prüfen. Die Ergebnisbox nutzt auf schmalen Displays die volle Formularbreite.
 
+## Optionale KI-Websuche ab 0.1.12
+
+Nach Eingabe eines Produktnamens startet **„Mit KI im Web suchen“** eine Suche über die OpenAI Responses API mit Websuche. Bis zu drei Varianten werden mit anklickbarer Fundstelle und separat zu prüfender Artikelnummer/Gebindegröße angeboten. Erst **„Diese Variante übernehmen“** schreibt Stammdaten ins Formular. **„SDB mit KI suchen“** sucht gesondert nach einem offiziellen Sicherheitsdatenblatt und übernimmt den gefundenen Link erst nach Öffnen und Bestätigung. Das PDF lässt sich unabhängig davon weiter manuell hochladen. Ein erstplatziertes Suchergebnis gilt nicht automatisch als richtiges SDB. UFI, GHS, H-Sätze und Einstufung werden nie aus dieser Suche übernommen.
+
+Die Suche ist standardmäßig deaktiviert. Sie benötigt einen eigenen OpenAI-API-Schlüssel mit separater API-Abrechnung; ein ChatGPT-Abo stellt keinen API-Schlüssel bereit. Nur der eingegebene Produktname und ein optionaler Herstellerhinweis werden bei einem Klick an die API gesendet. Der Schlüssel bleibt serverseitig und darf nicht ins Git-Repository oder Browser-JavaScript. Auf einem Debian-Server als root einrichten:
+
+```sh
+install -d -o root -g www-data -m 750 /etc/nextcloud
+read -rsp 'OpenAI-API-Schlüssel: ' GSK_KEY; echo
+printf '%s' "$GSK_KEY" > /etc/nextcloud/gefahrstoffkataster-openai.key
+unset GSK_KEY
+chown root:www-data /etc/nextcloud/gefahrstoffkataster-openai.key
+chmod 640 /etc/nextcloud/gefahrstoffkataster-openai.key
+```
+
+Alternativ kann PHP-FPM die Umgebungsvariable `GSK_OPENAI_API_KEY` erhalten. Für die Dateivariante muss `www-data` die Schlüsseldatei lesen können. Die App verwendet `gpt-5.4-mini`, erzwingt einen Websuchaufruf, überträgt keine Fotos oder SDB-PDFs an OpenAI und setzt `store: false`. OpenAI berechnet Modellnutzung und Websuche nach den gültigen API-Preisen. Bei fehlendem Schlüssel zeigt die App eine verständliche Meldung und bietet weiterhin den manuellen Weblink. Nach Einrichtung zunächst mit einem klar benannten Produkt auf der Testinstanz prüfen; in dieser Entwicklungsumgebung stand kein API-Schlüssel und keine laufende Nextcloud zur Verfügung.
+
 ## Funktionen und Grenzen
 
 - Produkte, Gebindegröße, Menge je Lagerort, Zugänge/Entnahmen/Korrekturen, Buchungsprotokoll in der Datenbank, mehrere Bilder und SDB-PDF.
 - Excel `.xlsx` mit „Gesamtbestand“ und „Gefahrstoffverzeichnis“ sowie CSV. Der XLSX-Export benötigt die PHP-Erweiterung `zip`.
-- EAN-Abfrage mit Open Products Facts, optionale Etikett-Texterkennung mit lokalem Tesseract sowie bestätigbare Stammdaten von Witty-/Flamingo-Herstellerseiten. Keine KI-basierte Produkterkennung oder allgemeine automatische Websuch-API. Eingetragene Einstufungen und SDB müssen fachlich abgeglichen werden.
+- EAN-Abfrage mit Open Products Facts, optionale Etikett-Texterkennung mit lokalem Tesseract, bestätigbare Stammdaten von Witty-/Flamingo-Herstellerseiten sowie optional eine KI-Websuche mit separatem API-Schlüssel. Eingetragene Einstufungen und SDB müssen fachlich abgeglichen werden.
 - Die App verwendet **einen gemeinsamen Bestand** für Administratoren und Mitglieder der Gruppe `freibad-gefahrstoffe`. Sie besitzt noch keine gesonderten Freigaberollen oder eine UI für das Buchungsprotokoll.
 - Die frühere Docker-Web-App und diese Nextcloud-App verwenden getrennte Datenbanken. Die neue App startet leer; ein Import aus der Docker-Version ist noch nicht implementiert.
 

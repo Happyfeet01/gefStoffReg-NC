@@ -289,6 +289,117 @@ class InventoryController extends Controller {
     }
 
     #[NoAdminRequired]
+    public function researchProduct(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        try {
+            $input = $this->payload();
+            $query = trim((string)($input['query'] ?? ''));
+            $manufacturer = trim((string)($input['manufacturer'] ?? ''));
+            $mode = ($input['mode'] ?? 'product') === 'sds' ? 'sds' : 'product';
+            if (mb_strlen($query) < 4 || mb_strlen($query) > 160 || mb_strlen($manufacturer) > 120) {
+                return $this->fail('Bitte einen Produktnamen mit mindestens vier Zeichen eingeben.');
+            }
+            $key = trim((string)(getenv('GSK_OPENAI_API_KEY') ?: ''));
+            $keyFile = '/etc/nextcloud/gefahrstoffkataster-openai.key';
+            if ($key === '' && is_readable($keyFile)) $key = trim((string)file_get_contents($keyFile));
+            if ($key === '') return $this->fail('KI-Websuche ist noch nicht eingerichtet: API-Schlüssel auf dem Server hinterlegen. Die normale Websuche bleibt verfügbar.', 503);
+
+            $candidate = [
+                'type' => 'object', 'additionalProperties' => false,
+                'properties' => [
+                    'name' => ['type' => 'string'], 'manufacturer' => ['type' => 'string'],
+                    'article' => ['type' => 'string'], 'pack_size' => ['type' => ['number','null']],
+                    'unit' => ['type' => 'string'], 'source_url' => ['type' => 'string'],
+                    'sds_url' => ['type' => 'string'], 'match_note' => ['type' => 'string'],
+                ],
+                'required' => ['name','manufacturer','article','pack_size','unit','source_url','sds_url','match_note'],
+            ];
+            $request = [
+                'model' => 'gpt-5.4-mini',
+                'store' => false,
+                'reasoning' => ['effort' => 'low'],
+                'tools' => [['type' => 'web_search', 'search_context_size' => 'medium']],
+                'tool_choice' => 'required',
+                'include' => ['web_search_call.action.sources'],
+                'max_output_tokens' => 2500,
+                'instructions' => 'Du recherchierst Produkt-Stammdaten und offizielle Sicherheitsdatenblätter für ein deutsches betriebliches Inventar. Suche wirklich im Web. Bevorzuge Originalquellen des Herstellers oder SDB-Erstellers. Trenne verschiedene Varianten und Packungsgrößen strikt. Gib bis zu drei konkrete Varianten zurück, bei unklarem Treffer eine leere Liste. source_url und sds_url müssen wirklich gefundene URLs sein; sds_url ist nur ein offizielles SDB für den deutschen Markt zur exakt passenden Produktvariante, sonst leer. Ein Schweizer oder österreichisches SDB, ein beliebiges PDF oder ein Produktmerkblatt ist kein passender Nachweis. Hersteller ist nicht bloß die Marke. Nimm keine Gefahrstoff-Einstufung, GHS oder H-Sätze auf. Erfinde keine Artikelnummer oder Gebindegröße. Packungsgröße ist Inhalt pro Gebinde, nicht Anzahl vorhandener Gebinde.',
+                'input' => ($mode === 'sds' ? 'Suche das aktuelle deutsche Sicherheitsdatenblatt (SDB) als PDF vom Hersteller/Ersteller für: ' : 'Suche Produktvarianten zu: ') . $query . ($manufacturer !== '' ? ' | Herstellerhinweis: ' . $manufacturer : ''),
+                'text' => ['format' => [
+                    'type' => 'json_schema', 'name' => 'product_research', 'strict' => true,
+                    'schema' => ['type' => 'object', 'additionalProperties' => false,
+                        'properties' => ['candidates' => ['type' => 'array', 'items' => $candidate]],
+                        'required' => ['candidates']],
+                ]],
+            ];
+            $response = $this->clientService->newClient()->post('https://api.openai.com/v1/responses', [
+                'timeout' => 40,
+                'headers' => ['Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'],
+                'body' => json_encode($request, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            ]);
+            if ($response->getStatusCode() !== 200) return $this->fail('KI-Websuche konnte nicht ausgeführt werden (HTTP ' . $response->getStatusCode() . '). API-Schlüssel und Guthaben prüfen.', 503);
+            $raw = $response->getBody();
+            if (strlen($raw) > 1000000) return $this->fail('Suchantwort ist zu groß.', 502);
+            $result = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            $output = '';
+            $sources = [];
+            foreach (($result['output'] ?? []) as $item) {
+                if (($item['type'] ?? '') === 'web_search_call') {
+                    foreach (($item['action']['sources'] ?? []) as $source) {
+                        if (is_string($source['url'] ?? null)) $sources[] = $source['url'];
+                    }
+                }
+                if (($item['type'] ?? '') === 'message') {
+                    foreach (($item['content'] ?? []) as $part) {
+                        if (($part['type'] ?? '') === 'output_text') {
+                            $output .= (string)($part['text'] ?? '');
+                            foreach (($part['annotations'] ?? []) as $annotation) {
+                                $citationUrl = $annotation['url'] ?? $annotation['url_citation']['url'] ?? null;
+                                if (is_string($citationUrl)) $sources[] = $citationUrl;
+                            }
+                        }
+                    }
+                }
+            }
+            if ($output === '' || !$sources) return $this->fail('Keine belegten Produktvorschläge gefunden. Bitte Namen präzisieren oder Herstellerseite manuell öffnen.', 422);
+            $parsed = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
+            $matches = [];
+            foreach (array_slice($parsed['candidates'] ?? [], 0, 3) as $entry) {
+                if (!is_array($entry)) continue;
+                $url = (string)($entry['source_url'] ?? '');
+                $parts = parse_url($url);
+                if (strlen($url) > 600 || ($parts['scheme'] ?? '') !== 'https' || !isset($parts['host']) || isset($parts['user']) || isset($parts['pass']) || !in_array($url, $sources, true)) continue;
+                $sdsUrl = (string)($entry['sds_url'] ?? '');
+                $sdsParts = parse_url($sdsUrl);
+                if ($sdsUrl !== '' && (strlen($sdsUrl) > 600 || ($sdsParts['scheme'] ?? '') !== 'https' || !isset($sdsParts['host']) || isset($sdsParts['user']) || isset($sdsParts['pass']) || !in_array($sdsUrl, $sources, true))) $sdsUrl = '';
+                if ($mode === 'sds' && $sdsUrl === '') continue;
+                $name = trim((string)($entry['name'] ?? ''));
+                if ($name === '') continue;
+                $size = $entry['pack_size'] ?? null;
+                $unit = (string)($entry['unit'] ?? '');
+                if (!is_numeric($size) || (float)$size <= 0 || (float)$size > 1000000 || !in_array($unit, ['l','kg','ml','g','Stück'], true)) {
+                    $size = null; $unit = '';
+                }
+                $matches[] = [
+                    'name' => mb_substr($name, 0, 160),
+                    'manufacturer' => mb_substr(trim((string)($entry['manufacturer'] ?? '')), 0, 120),
+                    'article' => mb_substr(trim((string)($entry['article'] ?? '')), 0, 100),
+                    'pack_size' => $size === null ? null : (float)$size, 'unit' => $unit,
+                    'source_url' => $url,
+                    'sds_url' => $sdsUrl,
+                    'match_note' => mb_substr(trim((string)($entry['match_note'] ?? '')), 0, 200),
+                ];
+            }
+            return new DataResponse(['matches' => $matches]);
+        } catch (\Throwable $e) {
+            $status = method_exists($e, 'getResponse') ? $e->getResponse()?->getStatusCode() : null;
+            if ($status === 401 || $status === 403) return $this->fail('OpenAI-API-Schlüssel ungültig oder ohne Zugriff auf die Websuche.', 503);
+            if ($status === 429) return $this->fail('OpenAI-API-Limit erreicht oder kein Guthaben. Bitte API-Abrechnung prüfen.', 503);
+            $this->logger->warning('Gefahrstoffkataster: KI-Websuche fehlgeschlagen.', ['type' => get_class($e), 'status' => $status]);
+            return $this->fail('KI-Websuche momentan nicht verfügbar. Bitte später erneut suchen oder Herstellerseite manuell öffnen.', 503);
+        }
+    }
+
+    #[NoAdminRequired]
     public function readLabel(): DataResponse {
         if (!$this->permitted()) return $this->denied();
         $upload = $this->request->getUploadedFile('file');

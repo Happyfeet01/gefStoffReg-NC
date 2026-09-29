@@ -19,3 +19,5 @@
 #gsk-app .grid > .full{grid-column:1/-1;min-width:0}
 #gsk-app .lookup-result details{width:100%;min-width:0}
 #gsk-app .lookup-result details button{margin:4px;max-width:100%;overflow-wrap:anywhere}
+#gsk-app .research-match{width:100%;min-width:0;border-top:1px solid #c9e2e3;padding:10px 0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+#gsk-app .research-match strong,#gsk-app .research-match span,#gsk-app .research-match small{overflow-wrap:anywhere;white-space:normal}

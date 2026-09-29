@@ -7,7 +7,7 @@ function notice(message,error=false){const el=$('toast');el.textContent=message;
 async function request(path,body,method='POST'){
   const data=new FormData();data.set('payload',JSON.stringify(body));
   const response=await fetch(url(path),{method,headers:{requesttoken:OC.requestToken},body:data});
-  let result;try{result=await response.json()}catch{throw Error('Serverantwort konnte nicht gelesen werden.')}
+  let result;try{result=await response.json()}catch{throw Error(`Serverantwort konnte nicht gelesen werden (HTTP ${response.status}).`)}
   if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);
   return result;
 }
@@ -61,6 +61,7 @@ function openProduct(p=null){
   state.current=p;
   const f=$('product-form');f.reset();$('photo-gallery').value='';$('photo-camera').value='';$('sds-file').value='';
   $('lookup-result').hidden=true;$('lookup-result').replaceChildren();
+  $('source-result').hidden=true;$('source-result').replaceChildren();
   $('dialog-title').textContent=p?'Produkt bearbeiten':'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));
@@ -71,6 +72,7 @@ function openProduct(p=null){
   show('product-dialog');
 }
 function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
+function sourceMessage(message){const box=$('source-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
 async function lookupEan(){
   const ean=$('product-form').elements.ean.value.trim();
   if(!/^[0-9]{8,14}$/.test(ean)){lookupMessage('Bitte zuerst eine EAN/GTIN mit 8 bis 14 Ziffern scannen oder eingeben.');return}
@@ -122,29 +124,29 @@ async function searchName(){
 $('name-search-button').addEventListener('click',searchName);
 $('manufacturer-search').addEventListener('click',()=>{
   const f=$('product-form');const terms=[f.elements.article.value,f.elements.name.value,f.elements.manufacturer.value].map(x=>x.trim()).filter(Boolean);
-  if(!terms.length){lookupMessage('Bitte erst Produktname, Artikelnummer oder Hersteller eingeben.');return}
+  if(!terms.length){sourceMessage('Bitte erst Produktname, Artikelnummer oder Hersteller eingeben.');return}
   window.open('https://www.google.com/search?q='+encodeURIComponent(terms.join(' ')), '_blank', 'noopener,noreferrer');
-  lookupMessage('Öffne die passende Herstellerseite im Suchergebnis und kopiere deren Link in das Feld „Link zur Herstellerseite“.');
+  sourceMessage('Öffne die passende Herstellerseite im Suchergebnis und kopiere deren Link in das Feld „Link zur Herstellerseite“.');
 });
 $('source-preview').addEventListener('click',async()=>{
   const f=$('product-form');const source=f.elements.source_url.value.trim();
-  if(!source){lookupMessage('Bitte zuerst den Link einer Herstellerseite einfügen.');return}
-  const action=$('source-preview');action.disabled=true;lookupMessage('Herstellerseite wird gelesen …');
+  if(!source){sourceMessage('Bitte zuerst den Link einer Herstellerseite einfügen.');return}
+  const action=$('source-preview');action.disabled=true;action.textContent='Lese …';sourceMessage('Herstellerseite wird gelesen …');
   try{
     const data=await request('/api/source-preview',{url:source});
     if(f.elements.source_url.value.trim()!==source)return;
-    const box=lookupMessage('Vorschlag von der Herstellerseite: '+[data.name,data.article,data.pack_size&&`${data.pack_size} ${data.unit}`].filter(Boolean).join(' · ')+'. Bitte mit dem Gebinde vergleichen.');
+    const box=sourceMessage('Vorschlag von der Herstellerseite: '+[data.name,data.article,data.pack_size&&`${data.pack_size} ${data.unit}`].filter(Boolean).join(' · ')+'. Bitte mit dem Gebinde vergleichen.');
     box.append(buttonElement('Stammdaten übernehmen',()=>{
       if(data.name)f.elements.name.value=data.name;
       if(data.manufacturer)f.elements.manufacturer.value=data.manufacturer;
       if(data.article)f.elements.article.value=data.article;
       if(data.pack_size){f.elements.pack_size.value=data.pack_size;f.elements.unit.value=data.unit}
       if(data.sds_url)f.elements.sds_url.value=data.sds_url;
-      const result=lookupMessage('Stammdaten übernommen. Variante und SDB-Link prüfen; GHS und H-Sätze anhand des SDB eintragen.');
+      const result=sourceMessage('Stammdaten übernommen. Variante und SDB-Link prüfen; GHS und H-Sätze anhand des SDB eintragen.');
       if(data.sds_url){const link=el('a','', 'Hersteller-SDB öffnen ↗');link.href=data.sds_url;link.target='_blank';link.rel='noopener noreferrer';result.append(link)}
     }));
     const link=el('a','', 'Herstellerseite ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
-  }catch(err){lookupMessage(err.message)}finally{action.disabled=false}
+  }catch(err){sourceMessage('Einlesen fehlgeschlagen: '+err.message)}finally{action.disabled=false;action.textContent='Herstellerseite einlesen'}
 });
 $('product-form').elements.ean.addEventListener('change',()=>{if($('product-form').elements.ean.value.trim())lookupEan()});
 $('label-button').addEventListener('click',()=>$('label-input').click());

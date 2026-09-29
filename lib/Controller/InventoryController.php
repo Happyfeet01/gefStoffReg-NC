@@ -29,11 +29,12 @@ class InventoryController extends Controller {
         'ufi' => 80, 'category' => 80, 'use_area' => 100, 'unit' => 20,
         'classification' => 600, 'ghs' => 120, 'signal' => 40,
         'h_statements' => 1500, 'storage_note' => 800,
+        'source_url' => 600, 'sds_url' => 600,
     ];
     private const HEADERS = ['Produkt','Hersteller','Artikelnummer','EAN','UFI',
         'Einsatzbereich','Kategorie','Lagerort','Gebindeanzahl','Gebindegröße',
         'Einheit','Gesamtmenge','Gefahrstoff','Einstufung','GHS','Signalwort',
-        'H-Sätze','SDB-Datum','SDB-Datei','Geprüft am','Hinweise'];
+        'H-Sätze','SDB-Datum','SDB-Datei','Geprüft am','Hinweise','Herstellerseite','Hersteller-SDB-Link'];
 
     public function __construct(
         string $appName,
@@ -108,6 +109,11 @@ class InventoryController extends Controller {
             throw new \InvalidArgumentException('Gefahrstoff muss Ja oder Nein sein.');
         }
         $data['hazardous'] = $input['hazardous'];
+        foreach (['source_url','sds_url'] as $field) {
+            if ($data[$field] !== '' && (!filter_var($data[$field], FILTER_VALIDATE_URL) || parse_url($data[$field], PHP_URL_SCHEME) !== 'https')) {
+                throw new \InvalidArgumentException($field . ': Nur HTTPS-Links sind erlaubt.');
+            }
+        }
         foreach (['sds_date','checked_at'] as $field) {
             $value = $input[$field] ?? '';
             if (!is_string($value) || ($value !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) || !checkdate((int)substr($value,5,2), (int)substr($value,8,2), (int)substr($value,0,4))))) {
@@ -197,6 +203,54 @@ class InventoryController extends Controller {
             }
             $this->logger->warning('Gefahrstoffkataster: EAN-Suche nicht verfügbar.', ['exception' => $e]);
             return $this->fail('Externe Produktsuche gerade nicht erreichbar. EAN bleibt eingetragen.', 503);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function previewSource(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        try {
+            $input = $this->payload()['url'] ?? null;
+            if (!is_string($input) || strlen($input) > 600 || !filter_var($input, FILTER_VALIDATE_URL)) return $this->fail('Bitte eine vollständige Hersteller-URL eingeben.');
+            $parts = parse_url($input);
+            $host = strtolower($parts['host'] ?? '');
+            if (($parts['scheme'] ?? '') !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || !in_array($host, ['www.witty.eu','witty.eu','www.flamingo-group.de','flamingo-group.de'], true)) {
+                return $this->fail('Derzeit werden nur Produktseiten von witty.eu und flamingo-group.de eingelesen.');
+            }
+            $response = $this->clientService->newClient()->get($input, [
+                'timeout' => 8, 'allow_redirects' => false,
+                'headers' => ['User-Agent' => 'Gefahrstoffkataster/0.1.7 (https://github.com/Happyfeet01/gefStoffReg-NC)'],
+            ]);
+            if ($response->getStatusCode() !== 200) return $this->fail('Herstellerseite konnte nicht abgerufen werden.', 502);
+            $html = $response->getBody();
+            if (strlen($html) > 2000000) return $this->fail('Herstellerseite ist zu groß.', 413);
+            $document = new \DOMDocument();
+            if (!@$document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) return $this->fail('Herstellerseite konnte nicht ausgewertet werden.', 502);
+            $xpath = new \DOMXPath($document);
+            $headings = $xpath->query('//h1');
+            $name = $headings && $headings->length ? trim(preg_replace('/\s+/u', ' ', $headings->item(0)->textContent)) : '';
+            $text = preg_replace('/\s+/u', ' ', $document->textContent);
+            $result = ['name' => mb_substr($name, 0, 160), 'manufacturer' => $host === 'www.witty.eu' || $host === 'witty.eu' ? 'Witty' : 'FWT GmbH Flamingo water technology',
+                'article' => '', 'pack_size' => null, 'unit' => '', 'source_url' => $input, 'sds_url' => ''];
+            if (str_ends_with($host, 'witty.eu')) {
+                if (preg_match('/Artikelnummer\s*:\s*(\d{4,12})/u', $text, $m)) $result['article'] = $m[1];
+                if (preg_match('/Inhalt\s*:\s*([\d,.]+)\s*(Kilogramm|kg|Liter|l)\b/ui', $text, $m)) {
+                    $result['pack_size'] = (float)str_replace(',', '.', $m[1]);
+                    $result['unit'] = in_array(mb_strtolower($m[2]), ['kilogramm','kg'], true) ? 'kg' : 'l';
+                }
+                foreach ($xpath->query('//a[contains(translate(normalize-space(.), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "sicherheitsdatenblatt")]') ?: [] as $link) {
+                    $href = $link->getAttribute('href');
+                    if (str_starts_with($href, '/product/download/')) {
+                        $result['sds_url'] = 'https://' . $host . $href;
+                        break;
+                    }
+                }
+            }
+            if ($result['name'] === '') return $this->fail('Kein Produktname auf der Herstellerseite gefunden.', 422);
+            return new DataResponse($result);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Gefahrstoffkataster: Herstellerseite konnte nicht eingelesen werden.', ['exception' => $e]);
+            return $this->fail('Herstellerseite gerade nicht verfügbar. Angaben können weiterhin von Hand erfasst werden.', 503);
         }
     }
 
@@ -423,7 +477,7 @@ class InventoryController extends Controller {
                     $count, $p['pack_size'], $p['unit'], round($count * $p['pack_size'], 6),
                     !empty($p['hazardous']) ? 'Ja' : 'Nein', $p['classification'], $p['ghs'],
                     $p['signal'], $p['h_statements'], $p['sds_date'], $fileUrl,
-                    $p['checked_at'], $p['storage_note']];
+                    $p['checked_at'], $p['storage_note'], $p['source_url'] ?? '', $p['sds_url'] ?? ''];
             }
         }
         return $result;

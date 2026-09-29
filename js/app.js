@@ -49,6 +49,8 @@ function render(){
     const places=el('div','card-locations');for(const s of p.stock.filter(s=>s.packs>0)){const place=state.locations.find(l=>l.id===s.location_id);places.append(el('span','place',`${place?.name||'?'}: ${format(s.packs)} Gebinde`))}if(!places.childElementCount)places.append(el('span','', 'Noch kein Bestand'));card.append(places);
     const actions=el('div','actions');actions.append(button('Bestand ändern',()=>openStock(p)),button('Bearbeiten',()=>openProduct(p)));
     if(p.sds_id){const link=el('a','', 'SDB herunterladen ↗');link.href=url(`/api/files/${p.sds_id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
+    if(p.source_url){const link=el('a','', 'Herstellerseite ↗');link.href=p.source_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
+    if(p.sds_url){const link=el('a','', 'SDB beim Hersteller ↗');link.href=p.sds_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
     for(const photo of p.photos||[]){const link=el('a','', 'Foto herunterladen ↗');link.href=url(`/api/files/${photo.id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
     card.append(actions);list.append(card);
   }
@@ -62,7 +64,7 @@ function openProduct(p=null){
   $('dialog-title').textContent=p?'Produkt bearbeiten':'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));
-  if(p){for(const name of ['name','manufacturer','article','ean','ufi','category','use_area','pack_size','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at'])f.elements[name].value=p[name]??'';f.elements.hazardous.checked=!!p.hazardous}
+  if(p){for(const name of ['name','manufacturer','article','ean','ufi','category','use_area','pack_size','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url'])f.elements[name].value=p[name]??'';f.elements.hazardous.checked=!!p.hazardous}
   const links=$('current-files');links.replaceChildren();
   if(p?.sds_id){const a=el('a','', 'Vorhandenes SDB ↗');a.href=url(`/api/files/${p.sds_id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
@@ -118,6 +120,32 @@ async function searchName(){
   }catch(err){lookupMessage(err.message)}finally{action.disabled=false}
 }
 $('name-search-button').addEventListener('click',searchName);
+$('manufacturer-search').addEventListener('click',()=>{
+  const f=$('product-form');const terms=[f.elements.article.value,f.elements.name.value,f.elements.manufacturer.value].map(x=>x.trim()).filter(Boolean);
+  if(!terms.length){lookupMessage('Bitte erst Produktname, Artikelnummer oder Hersteller eingeben.');return}
+  window.open('https://www.google.com/search?q='+encodeURIComponent(terms.join(' ')), '_blank', 'noopener,noreferrer');
+  lookupMessage('Öffne die passende Herstellerseite im Suchergebnis und kopiere deren Link in das Feld „Link zur Herstellerseite“.');
+});
+$('source-preview').addEventListener('click',async()=>{
+  const f=$('product-form');const source=f.elements.source_url.value.trim();
+  if(!source){lookupMessage('Bitte zuerst den Link einer Herstellerseite einfügen.');return}
+  const action=$('source-preview');action.disabled=true;lookupMessage('Herstellerseite wird gelesen …');
+  try{
+    const data=await request('/api/source-preview',{url:source});
+    if(f.elements.source_url.value.trim()!==source)return;
+    const box=lookupMessage('Vorschlag von der Herstellerseite: '+[data.name,data.article,data.pack_size&&`${data.pack_size} ${data.unit}`].filter(Boolean).join(' · ')+'. Bitte mit dem Gebinde vergleichen.');
+    box.append(buttonElement('Stammdaten übernehmen',()=>{
+      if(data.name)f.elements.name.value=data.name;
+      if(data.manufacturer)f.elements.manufacturer.value=data.manufacturer;
+      if(data.article)f.elements.article.value=data.article;
+      if(data.pack_size){f.elements.pack_size.value=data.pack_size;f.elements.unit.value=data.unit}
+      if(data.sds_url)f.elements.sds_url.value=data.sds_url;
+      const result=lookupMessage('Stammdaten übernommen. Variante und SDB-Link prüfen; GHS und H-Sätze anhand des SDB eintragen.');
+      if(data.sds_url){const link=el('a','', 'Hersteller-SDB öffnen ↗');link.href=data.sds_url;link.target='_blank';link.rel='noopener noreferrer';result.append(link)}
+    }));
+    const link=el('a','', 'Herstellerseite ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  }catch(err){lookupMessage(err.message)}finally{action.disabled=false}
+});
 $('product-form').elements.ean.addEventListener('change',()=>{if($('product-form').elements.ean.value.trim())lookupEan()});
 $('label-button').addEventListener('click',()=>$('label-input').click());
 $('label-input').addEventListener('change',async event=>{
@@ -155,7 +183,7 @@ $('product-form').addEventListener('submit',async event=>{
   event.preventDefault();const save=$('save-product');save.disabled=true;save.textContent='Speichere …';
   try{
     const f=event.currentTarget;
-    const keys=['name','manufacturer','article','ean','ufi','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at'];
+    const keys=['name','manufacturer','article','ean','ufi','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url'];
     const body=Object.fromEntries(keys.map(k=>[k,f.elements[k].value.trim()]));
     Object.assign(body,{pack_size:Number(f.elements.pack_size.value),hazardous:f.elements.hazardous.checked});
     const isNew=!state.current;

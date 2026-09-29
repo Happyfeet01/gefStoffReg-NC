@@ -21,3 +21,50 @@
 #gsk-app .lookup-result details button{margin:4px;max-width:100%;overflow-wrap:anywhere}
 #gsk-app .research-match{width:100%;min-width:0;border-top:1px solid #c9e2e3;padding:10px 0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 #gsk-app .research-match strong,#gsk-app .research-match span,#gsk-app .research-match small{overflow-wrap:anywhere;white-space:normal}
+
+/* Desktop workspace: use the available Nextcloud content area. */
+#gsk-app{width:100%;min-width:0;flex:1}
+@media(min-width:900px){
+  #gsk-app{font-size:16px;line-height:1.5}
+  #gsk-app .topbar,#gsk-app main{width:100%;max-width:1680px;padding-left:36px;padding-right:36px}
+  #gsk-app .topbar{height:96px}
+  #gsk-app .brand strong{font-size:20px}
+  #gsk-app .brand span,#gsk-app .eyebrow{font-size:13px}
+  #gsk-app .export,#gsk-app .metrics span,#gsk-app .actions button,#gsk-app .actions a{font-size:15px}
+  #gsk-app .hero{padding:36px 40px;border-radius:16px}
+  #gsk-app .hero p:last-child{max-width:760px;font-size:17px}
+  #gsk-app .metrics strong{font-size:34px}
+  #gsk-app .section-head h2{font-size:28px}
+  #gsk-app .filters{grid-template-columns:minmax(240px,1fr) 240px 220px;gap:16px}
+  #gsk-app .card{padding:24px;gap:16px 24px}
+  #gsk-app .card h3{font-size:21px}
+  #gsk-app .card-stock strong{font-size:23px}
+  #gsk-app .card-locations,#gsk-app .below{font-size:14px}
+  #gsk-app .badge{font-size:12px}
+
+  /* Product editing occupies almost the full screen, with its own scroll area. */
+  #gsk-app #product-dialog{
+    width:calc(100vw - 48px);max-width:none;height:calc(100dvh - 80px);
+    max-height:calc(100dvh - 80px);margin:auto;border-radius:12px;
+    box-shadow:0 12px 40px #08293630;background:#f4f8f7;
+  }
+  #gsk-app #product-dialog::backdrop{background:#08273440}
+  #gsk-app #product-form{height:100%;min-height:0;display:flex;flex-direction:column;margin:0}
+  #gsk-app #product-dialog .dialog-head{flex:none;padding:22px 32px;background:#fff;align-items:center}
+  #gsk-app #product-dialog .dialog-head h2{font-size:30px}
+  #gsk-app #product-dialog .close{width:44px;height:44px;font-size:28px}
+  #gsk-app #product-dialog .dialog-scroll{
+    flex:1;min-height:0;max-height:none;padding:24px 32px;overflow:auto;
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-content:start;align-items:start;
+  }
+  #gsk-app #product-dialog .form-section{min-width:0;padding:24px;background:#fff;border:1px solid #dce7e6;border-radius:12px}
+  #gsk-app #product-dialog .form-section:last-child{grid-column:1/-1}
+  #gsk-app #product-dialog .form-section h3{font-size:20px;margin-bottom:20px}
+  #gsk-app #product-dialog .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  #gsk-app #product-dialog .grid label{font-size:15px}
+  #gsk-app #product-dialog input,#gsk-app #product-dialog select,#gsk-app #product-dialog textarea{font-size:16px}
+  #gsk-app #product-dialog .hint,#gsk-app #product-dialog .grid small,#gsk-app #product-dialog .lookup-result{font-size:14px}
+  #gsk-app #product-dialog .dialog-actions{flex:none;padding:18px 32px;box-shadow:0 -4px 16px #173d5208}
+  #gsk-app #product-dialog .dialog-actions button{min-width:170px;min-height:46px}
+  #gsk-app dialog#stock-dialog{width:min(760px,calc(100vw - 48px));max-width:none}
+}

@@ -65,6 +65,8 @@ Alternativ kann PHP-FPM die Umgebungsvariable `GSK_OPENAI_API_KEY` erhalten. Fü
 
 ## Funktionen und Grenzen
 
+Seit 0.1.13 nutzt die Desktopübersicht bis zu 1680 Pixel Breite mit größerer Schrift. Die Produktmaske öffnet ab 900 Pixel Bildschirmbreite nahezu bildschirmfüllend, mit zwei Spalten für Formularabschnitte und einer dauerhaft sichtbaren Speicherleiste. Auf dem Smartphone bleibt die kompakte Formularansicht erhalten.
+
 - Produkte, Gebindegröße, Menge je Lagerort, Zugänge/Entnahmen/Korrekturen, Buchungsprotokoll in der Datenbank, mehrere Bilder und SDB-PDF.
 - Excel `.xlsx` mit „Gesamtbestand“ und „Gefahrstoffverzeichnis“ sowie CSV. Der XLSX-Export benötigt die PHP-Erweiterung `zip`.
 - EAN-Abfrage mit Open Products Facts, optionale Etikett-Texterkennung mit lokalem Tesseract, bestätigbare Stammdaten von Witty-/Flamingo-Herstellerseiten sowie optional eine KI-Websuche mit separatem API-Schlüssel. Eingetragene Einstufungen und SDB müssen fachlich abgeglichen werden.

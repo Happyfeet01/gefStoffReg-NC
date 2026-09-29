@@ -105,6 +105,29 @@ async function lookupEan(){
   }finally{button.disabled=false}
 }
 function buttonElement(label,action){const b=button(label,action);b.className='secondary';return b}
+function normalText(value){return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('de').replace(/[^a-z0-9]+/g,' ').trim()}
+function labelSuggestions(lines){
+  const text=normalText(lines.join(' '));
+  const scored=state.products.map(p=>{
+    const name=normalText(p.name),manufacturer=normalText(p.manufacturer),article=normalText(p.article),ean=String(p.ean||'').trim();
+    const nameTokens=name.split(' ').filter(word=>word.length>=4&&!['witty','flamingo','aqua','pool','chlor','wasser','reiniger'].includes(word));
+    const nameSeen=name.length>=7&&new RegExp('(?:^| )'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?: |$)').test(text);
+    const manufacturerSeen=manufacturer.length>=4&&text.includes(manufacturer);
+    const articleSeen=article.length>=5&&new RegExp('(?:^| )'+article.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?: |$)').test(text);
+    const eanSeen=ean.length>=8&&new RegExp('(?:^| )'+ean+'(?: |$)').test(text);
+    const tokenSeen=nameTokens.length>0&&nameTokens.every(word=>text.split(' ').includes(word));
+    const score=eanSeen?100:articleSeen&&manufacturerSeen?95:nameSeen&&manufacturerSeen?90:nameSeen?78:tokenSeen&&manufacturerSeen?72:0;
+    return {product:p,score};
+  }).filter(item=>item.score>=72).sort((a,b)=>b.score-a.score).slice(0,3);
+  const manufacturer=/flamingo|fwt gmbh/i.test(text)?'FWT GmbH Flamingo water technology':/witty/i.test(text)?'Witty':/aquatec/i.test(text)?'AquaTec':'';
+  const plausible=lines.map(line=>line.trim()).filter(line=>{
+    const clean=normalText(line);
+    return clean.length>=5&&clean.length<=75&&/[a-z]{4}/i.test(clean)&&!/(anwendung|dosierung|gefahr|achtung|gmbh|telefon|www |schutz|schwimm|beckenwasser|trinkwasser|lager|produkt darf|desinfektion|abgerufen)/i.test(clean);
+  });
+  const name=plausible.find(line=>/[®™]/.test(line))||plausible.find(line=>/\b(?:witty|liqui|aqua|pool)\b/i.test(line))||'';
+  const pack=lines.map(line=>line.match(/\b(?:inhalt|nettoinhalt|gebinde(?:groesse|größe)?|fuellmenge|füllmenge)\s*:?\s*(\d+(?:[,.]\d+)?)\s*(kg|l|ml|g)\b/i)).find(Boolean);
+  return {scored,manufacturer,name:name.replace(/[®™]/g,'').trim(),pack:pack?{size:pack[1].replace(',','.'),unit:pack[2].toLowerCase()}:null};
+}
 $('lookup-button').addEventListener('click',lookupEan);
 async function searchName(){
   const query=$('product-form').elements.name.value.trim();
@@ -161,10 +184,34 @@ $('label-input').addEventListener('change',async event=>{
     const data=new FormData();data.set('file',file,file.name);
     const response=await fetch(url('/api/label'),{method:'POST',headers:{requesttoken:OC.requestToken},body:data});
     const result=await response.json();if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);
-    box.replaceChildren(el('p','','Erkannte Zeilen: Wähle den Produktnamen aus. Bitte Text und Variante auf dem Etikett prüfen.'));
     const lines=result.lines||[];
-    if(!lines.length)box.append(el('p','','Kein lesbarer Text gefunden. Bitte ein scharfes Foto aufnehmen oder Angaben selbst eintragen.'));
-    for(const line of lines.slice(0,20))box.append(buttonElement(line.slice(0,160),()=>{$('product-form').elements.name.value=line.slice(0,160);notice('Produktname aus Etikett übernommen.')}));
+    box.replaceChildren(el('p','',lines.length?'Etikett erkannt. Bitte Produkt und Variante am Gebinde prüfen.':'Kein lesbarer Text gefunden. Bitte ein scharfes Foto aufnehmen oder Angaben selbst eintragen.'));
+    if(lines.length){
+      const suggestion=labelSuggestions(lines);
+      for(const {product} of suggestion.scored){
+        const detail=[product.name,product.manufacturer,product.pack_size&&`${format(product.pack_size)} ${product.unit}`].filter(Boolean).join(' · ');
+        box.append(buttonElement(`Im Bestand gefunden: ${detail} → Menge buchen`,()=>{close('product-dialog');openStock(product);$('stock-packs').focus()}));
+      }
+      if(suggestion.name||suggestion.manufacturer||suggestion.pack){
+        const f=$('product-form');
+        if(!state.current&&!suggestion.scored.length){
+          if(suggestion.name&&!f.elements.name.value.trim())f.elements.name.value=suggestion.name;
+          if(suggestion.manufacturer&&!f.elements.manufacturer.value.trim())f.elements.manufacturer.value=suggestion.manufacturer;
+          if(suggestion.pack&&!f.elements.pack_size.value){f.elements.pack_size.value=suggestion.pack.size;f.elements.unit.value=suggestion.pack.unit}
+        }
+        const details=[suggestion.name,suggestion.manufacturer,suggestion.pack&&`${suggestion.pack.size} ${suggestion.pack.unit}`].filter(Boolean).join(' · ');
+        box.append(el('p','',`Vorschlag für neues Produkt: ${details}`));
+        box.append(buttonElement('Erkannte Stammdaten übernehmen',()=>{
+          const f=$('product-form');if(suggestion.name)f.elements.name.value=suggestion.name;
+          if(suggestion.manufacturer)f.elements.manufacturer.value=suggestion.manufacturer;
+          if(suggestion.pack){f.elements.pack_size.value=suggestion.pack.size;f.elements.unit.value=suggestion.pack.unit}
+          notice('Stammdaten übernommen. Produktvariante und Gebindegröße prüfen.');
+        }));
+      }
+      const extracted=el('details');extracted.append(el('summary','',`Erkannte Textzeilen (${lines.length}) – anderen Namen auswählen`));
+      for(const line of lines.slice(0,20))extracted.append(buttonElement(line.slice(0,160),()=>{$('product-form').elements.name.value=line.slice(0,160);notice('Produktname aus Etikett übernommen.')}));
+      box.append(extracted);
+    }
     const search=el('a','', 'Produkt beim Hersteller suchen ↗');
     search.href='https://www.google.com/search?q='+encodeURIComponent(lines.slice(0,2).join(' ')+' Sicherheitsdatenblatt Hersteller');
     search.target='_blank';search.rel='noopener noreferrer';box.append(search);

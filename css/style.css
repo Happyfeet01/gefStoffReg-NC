@@ -1,0 +1,141 @@
+#gsk-app{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#193544;background:#f4f8f7;font-synthesis:none}#gsk-app *{box-sizing:border-box}#gsk-app{margin:0;min-width:320px}#gsk-app button,#gsk-app input,#gsk-app select,#gsk-app textarea{font:inherit}#gsk-app button{cursor:pointer}#gsk-app a{color:#116187}#gsk-app button:focus-visible,#gsk-app a:focus-visible,#gsk-app input:focus-visible,#gsk-app select:focus-visible,#gsk-app textarea:focus-visible{outline:3px solid #6cb9de;outline-offset:2px}#gsk-app .topbar{height:82px;max-width:1160px;margin:auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}#gsk-app .brand{display:flex;align-items:center;gap:12px}#gsk-app .brand img{height:49px;width:46px;object-fit:contain}#gsk-app .brand strong{display:block;font-size:16px;color:#123f5c}#gsk-app .brand span{display:block;font-size:12px;letter-spacing:.05em;color:#53717b}#gsk-app .export{font-size:14px;font-weight:700;text-decoration:none;background:#e6f1f2;padding:12px 16px;border-radius:10px;white-space:nowrap}#gsk-app main{max-width:1160px;padding:0 24px 70px;margin:auto}#gsk-app .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:22px;background:linear-gradient(112deg,#104c6c 4%,#156780 62%,#278d85);color:#fff;padding:42px 48px;border-radius:22px;box-shadow:0 14px 25px #0e4b6820}#gsk-app .eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;margin:0 0 10px;color:#278a94}#gsk-app .hero .eyebrow{color:#abdfe4}#gsk-app .hero h1{font-size:clamp(30px,4vw,48px);letter-spacing:-.04em;margin:0 0 9px}#gsk-app .hero p:last-child{color:#d5e9ee;line-height:1.45;margin:0;max-width:550px}#gsk-app .primary,#gsk-app .secondary{border:0;border-radius:10px;padding:12px 18px;font-weight:700;white-space:nowrap}#gsk-app .primary{background:#f2c46b;color:#263940;box-shadow:0 3px 0 #cca252}#gsk-app .primary:hover{background:#f8d387}#gsk-app .secondary{background:#e9f2f2;color:#155876}#gsk-app .secondary:hover{background:#d8eae9}#gsk-app .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 35px}#gsk-app .metrics>div{border:1px solid #e2e9e8;background:white;border-radius:16px;padding:18px 20px;box-shadow:0 3px 9px #143f5408}#gsk-app .metrics span{font-size:13px;color:#69808a;display:block}#gsk-app .metrics strong{display:block;margin-top:7px;font-size:29px;letter-spacing:-.04em}#gsk-app .metrics>div:nth-child(3) strong{color:#bc7131}#gsk-app .workspace{background:white;border:1px solid #e1e8e7;border-radius:18px;padding:28px;box-shadow:0 7px 22px #163f5610}#gsk-app .section-head{display:flex;justify-content:space-between;align-items:center;gap:10px}#gsk-app .section-head h2,#gsk-app .dialog-head h2{margin:0;font-size:23px;letter-spacing:-.025em}#gsk-app .filters{display:grid;grid-template-columns:1fr 185px 165px;gap:10px;margin:25px 0 18px}#gsk-app input,#gsk-app select,#gsk-app textarea{border:1px solid #cbd9da;border-radius:9px;background:#fff;color:#1b3947;padding:11px 12px;width:100%;min-width:0}#gsk-app input::placeholder{color:#8799a0}#gsk-app textarea{resize:vertical;line-height:1.45}#gsk-app .product-list{display:grid;gap:11px}#gsk-app .card{display:grid;grid-template-columns:1fr auto;gap:12px 18px;padding:18px 20px;border:1px solid #e2eae9;border-radius:13px;background:#fbfdfc}#gsk-app .card-top{display:flex;gap:11px;align-items:flex-start}#gsk-app .product-icon{display:grid;place-items:center;width:41px;height:41px;flex:0 0 41px;border-radius:10px;background:#e5f2f2;color:#176b7a;font-weight:800}#gsk-app .card h3{font-size:17px;margin:0 0 4px}#gsk-app .muted,#gsk-app .card small{color:#68808a}#gsk-app .badge{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:5px 7px;margin:8px 6px 0 0;background:#e9f3f5;color:#1b6680}#gsk-app .badge.hazard{background:#fff0dc;color:#975822}#gsk-app .badge.warn{background:#ffece8;color:#a44734}#gsk-app .card-stock{text-align:right;white-space:nowrap}#gsk-app .card-stock strong{font-size:18px;display:block}#gsk-app .card-locations{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;color:#54717c;font-size:12px}#gsk-app .place{background:#eef5f4;border-radius:30px;padding:5px 9px}#gsk-app .actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:9px;border-top:1px solid #e9eeed;padding-top:12px}#gsk-app .actions button,#gsk-app .actions a{border:0;background:transparent;color:#176587;font-size:13px;font-weight:700;padding:3px;text-decoration:none}#gsk-app .actions button:hover,#gsk-app .actions a:hover{text-decoration:underline}#gsk-app .empty{text-align:center;padding:40px;color:#617985}#gsk-app .below{border-top:1px solid #ebefef;margin-top:23px;padding-top:17px;display:flex;justify-content:space-between;gap:15px;font-size:12px;color:#718790}#gsk-app .below a{font-weight:700}#gsk-app .sr-only{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}#gsk-app dialog{border:0;border-radius:18px;width:min(700px,calc(100vw - 24px));max-height:calc(100dvh - 30px);padding:0;box-shadow:0 26px 90px #0829366b;color:#1c3a49}#gsk-app dialog::backdrop{background:#08273491}#gsk-app dialog#stock-dialog,#gsk-app dialog#scan-dialog{width:min(530px,calc(100vw - 24px))}#gsk-app .dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;padding:22px 27px 18px;border-bottom:1px solid #e5eeee}#gsk-app .close{border:0;background:#edf3f3;border-radius:8px;font-size:24px;line-height:1;width:35px;height:35px;color:#526b75}#gsk-app .dialog-scroll{padding:0 27px;overflow:auto;max-height:calc(100dvh - 188px)}#gsk-app .form-section{padding:21px 0;border-bottom:1px solid #e5eeee}#gsk-app .form-section:last-child{border-bottom:0}#gsk-app .form-section h3{margin:0 0 17px;font-size:15px;color:#174e68}#gsk-app .grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}#gsk-app .grid label{display:block;font-size:13px;font-weight:700;color:#48646e}#gsk-app .grid label input,#gsk-app .grid label select,#gsk-app .grid label textarea{display:block;margin-top:6px;font-weight:400}#gsk-app .grid label.full{grid-column:1/-1}#gsk-app .grid label.checkbox{display:flex;align-items:center;gap:8px;padding:10px 0}#gsk-app .checkbox input{width:18px;height:18px;margin:0!important;accent-color:#167a81}#gsk-app .grid small{display:block;font-weight:400;color:#7b8e95;margin-top:5px}#gsk-app .input-row{display:flex;align-items:center;gap:6px}#gsk-app .input-row input{flex:1}#gsk-app .scan{padding:10px}#gsk-app .hint{font-size:12px;color:#6b828a;line-height:1.5}#gsk-app .file-links{display:flex;gap:12px;font-size:13px}#gsk-app .dialog-actions{display:flex;justify-content:flex-end;gap:9px;padding:17px 27px;border-top:1px solid #e5eeee;background:#fff}#gsk-app .dialog-actions button:disabled{opacity:.5;cursor:wait}#gsk-app #toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);background:#173d52;color:white;border-radius:10px;padding:11px 16px;max-width:min(90vw,550px);z-index:10;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 8px 25px #09344850}#gsk-app #toast.show{opacity:1;transform:translate(-50%,0)}#gsk-app #toast.error{background:#a93e2a}#gsk-app #scan-video{width:calc(100% - 52px);margin:22px 26px 0;background:#173d52;border-radius:10px;min-height:210px}#gsk-app #scan-dialog .hint{margin:14px 26px 24px}@media(max-width:720px){#gsk-app .topbar{height:73px;padding:0 16px}#gsk-app .brand img{width:38px;height:40px}#gsk-app .brand strong{font-size:14px}#gsk-app .brand span{font-size:10px}#gsk-app .export{font-size:12px;padding:10px}#gsk-app main{padding:0 12px 40px}#gsk-app .hero{padding:29px 22px;display:block}#gsk-app .hero h1{font-size:33px}#gsk-app .hero .primary{margin-top:20px;width:100%}#gsk-app .metrics{grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0 22px}#gsk-app .metrics>div{padding:13px 15px}#gsk-app .metrics strong{font-size:24px}#gsk-app .workspace{padding:19px 14px}#gsk-app .section-head h2{font-size:20px}#gsk-app .filters{grid-template-columns:1fr 1fr;margin-top:20px}#gsk-app .filters .search{grid-column:1/-1}#gsk-app .card{padding:15px}#gsk-app .below{display:block}#gsk-app .below span{display:block;margin-top:7px}#gsk-app .dialog-head{padding:18px}#gsk-app .dialog-scroll{padding:0 18px}#gsk-app .dialog-actions{padding:15px 18px}#gsk-app .grid{gap:12px}#gsk-app .grid label{grid-column:1/-1}#gsk-app .dialog-actions .primary,#gsk-app .dialog-actions .secondary{flex:1}}@media(max-width:390px){#gsk-app .brand span{display:none}#gsk-app .export{padding:8px}#gsk-app .card{grid-template-columns:1fr}#gsk-app .card-stock{text-align:left;padding-left:52px}#gsk-app .filters{grid-template-columns:1fr}#gsk-app .filters .search{grid-column:auto}}
+
+#gsk-app{min-height:100%;overflow:auto;background:#f4f8f7;color:#193544}
+#gsk-app dialog{position:fixed}
+#gsk-app #scan-dialog #scan-status{margin:12px 26px 0;font-size:14px;font-weight:700;color:#174e68;line-height:1.4}
+#gsk-app #load-error:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;padding:14px 18px;background:#fff0ed;color:#893520;border:1px solid #ddaa9c;border-radius:10px;line-height:1.4}
+#gsk-app #load-error button{background:#893520;color:#fff;border:0;border-radius:7px;padding:9px 12px;font-weight:700;white-space:nowrap}
+#gsk-app #scan-controls{display:flex;gap:9px;flex-wrap:wrap;margin:13px 26px 0}
+#gsk-app #scan-controls button[hidden]{display:none}
+#gsk-app #scan-dialog .scan-actions{flex-wrap:wrap}
+#gsk-app #scan-dialog .scan-actions button{white-space:normal}
+#gsk-app .lookup-tools{display:flex;gap:8px;flex-wrap:wrap}
+#gsk-app .lookup-tools button{white-space:normal}
+#gsk-app .lookup-result{background:#eef7f7;border:1px solid #c9e2e3;border-radius:10px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;line-height:1.4}
+#gsk-app .lookup-result[hidden]{display:none}
+#gsk-app .lookup-result p{width:100%;margin:0 0 4px}
+#gsk-app .lookup-result button{white-space:normal;text-align:left;padding:8px 10px}
+#gsk-app .lookup-result a{padding:8px 2px}
+#gsk-app .grid > .full{grid-column:1/-1;min-width:0}
+#gsk-app .lookup-result details{width:100%;min-width:0}
+#gsk-app .lookup-result details button{margin:4px;max-width:100%;overflow-wrap:anywhere}
+#gsk-app .research-match{width:100%;min-width:0;border-top:1px solid #c9e2e3;padding:10px 0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+#gsk-app .research-match strong,#gsk-app .research-match span,#gsk-app .research-match small{overflow-wrap:anywhere;white-space:normal}
+
+/* Desktop workspace: use the available Nextcloud content area. */
+#gsk-app{width:100%;min-width:0;flex:1}
+@media(min-width:900px){
+  #gsk-app{font-size:16px;line-height:1.5}
+  #gsk-app .topbar,#gsk-app main{width:100%;max-width:1680px;padding-left:36px;padding-right:36px}
+  #gsk-app .topbar{height:96px}
+  #gsk-app .brand strong{font-size:20px}
+  #gsk-app .brand span,#gsk-app .eyebrow{font-size:13px}
+  #gsk-app .export,#gsk-app .metrics span,#gsk-app .actions button,#gsk-app .actions a{font-size:15px}
+  #gsk-app .hero{padding:36px 40px;border-radius:16px}
+  #gsk-app .hero p:last-child{max-width:760px;font-size:17px}
+  #gsk-app .metrics strong{font-size:34px}
+  #gsk-app .section-head h2{font-size:28px}
+  #gsk-app .filters{grid-template-columns:minmax(240px,1fr) 240px 220px;gap:16px}
+  #gsk-app .card{padding:24px;gap:16px 24px}
+  #gsk-app .card h3{font-size:21px}
+  #gsk-app .card-stock strong{font-size:23px}
+  #gsk-app .card-locations,#gsk-app .below{font-size:14px}
+  #gsk-app .badge{font-size:12px}
+
+  /* Product editing occupies almost the full screen, with its own scroll area. */
+  #gsk-app #product-dialog{
+    width:calc(100vw - 48px);max-width:none;height:calc(100dvh - 80px);
+    max-height:calc(100dvh - 80px);margin:auto;border-radius:12px;
+    box-shadow:0 12px 40px #08293630;background:#f4f8f7;
+  }
+  #gsk-app #product-dialog::backdrop{background:#08273440}
+  #gsk-app #product-form{height:100%;min-height:0;display:flex;flex-direction:column;margin:0}
+  #gsk-app #product-dialog .dialog-head{flex:none;padding:22px 32px;background:#fff;align-items:center}
+  #gsk-app #product-dialog .dialog-head h2{font-size:30px}
+  #gsk-app #product-dialog .close{width:44px;height:44px;font-size:28px}
+  #gsk-app #product-dialog .dialog-scroll{
+    flex:1;min-height:0;max-height:none;padding:24px 32px;overflow:auto;
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-content:start;align-items:start;
+  }
+  #gsk-app #product-dialog .form-section{min-width:0;padding:24px;background:#fff;border:1px solid #dce7e6;border-radius:12px}
+  #gsk-app #product-dialog .form-section:last-child{grid-column:1/-1}
+  #gsk-app #product-dialog .form-section h3{font-size:20px;margin-bottom:20px}
+  #gsk-app #product-dialog .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  #gsk-app #product-dialog .grid label{font-size:15px}
+  #gsk-app #product-dialog input,#gsk-app #product-dialog select,#gsk-app #product-dialog textarea{font-size:16px}
+  #gsk-app #product-dialog .hint,#gsk-app #product-dialog .grid small,#gsk-app #product-dialog .lookup-result{font-size:14px}
+  #gsk-app #product-dialog .dialog-actions{flex:none;padding:18px 32px;box-shadow:0 -4px 16px #173d5208}
+  #gsk-app #product-dialog .dialog-actions button{min-width:170px;min-height:46px}
+  #gsk-app dialog#stock-dialog{width:min(760px,calc(100vw - 48px));max-width:none}
+}
+
+/* Nextcloud shell: let the user's theme show through, without a second window. */
+#content:has(#gsk-app) {
+  background:var(--color-main-background-translucent,var(--color-main-background,#fff));
+  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);
+}
+#gsk-app {
+  --gsk-text:var(--color-main-text,#193544);
+  --gsk-muted:var(--color-text-maxcontrast,#526b75);
+  --gsk-surface:var(--color-main-background,#fff);
+  --gsk-border:var(--color-border,#dce7e6);
+  background:transparent;color:var(--gsk-text);
+  width:100%;max-width:none;min-height:100%;box-shadow:none;border-radius:0;
+}
+#gsk-app .topbar,#gsk-app main {max-width:none;width:100%}
+#gsk-app .topbar {height:auto;min-height:76px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}
+#gsk-app .hero {
+  background:transparent;color:var(--gsk-text);box-shadow:none;
+  border-radius:0;border-bottom:1px solid var(--gsk-border);padding:24px 0;
+  align-items:center;
+}
+#gsk-app .hero h1 {font-size:clamp(26px,2.4vw,38px)}
+#gsk-app .hero p:last-child,#gsk-app .hero .eyebrow,
+#gsk-app .brand span,#gsk-app .muted,#gsk-app .card small,
+#gsk-app .metrics span,#gsk-app .hint,#gsk-app .grid small,
+#gsk-app .grid label,#gsk-app .below,#gsk-app .card-locations {color:var(--gsk-muted)}
+#gsk-app .brand strong,#gsk-app .form-section h3 {color:var(--gsk-text)}
+#gsk-app .metrics {gap:12px;margin:20px 0 28px}
+#gsk-app .metrics>div {
+  background:var(--color-main-background-translucent,var(--gsk-surface));
+  border-color:var(--gsk-border);border-radius:var(--border-radius-large,12px);box-shadow:none;
+}
+#gsk-app .workspace {padding:0;background:transparent;border:0;border-radius:0;box-shadow:none}
+#gsk-app .card {
+  background:var(--color-main-background-translucent,var(--gsk-surface));
+  border-color:var(--gsk-border);border-radius:var(--border-radius,8px);box-shadow:none;
+}
+#gsk-app .primary {
+  background:var(--color-primary-element,#00679e);
+  color:var(--color-primary-element-text,#fff);box-shadow:none;
+}
+#gsk-app .primary:hover {background:var(--color-primary-element-hover,#005783)}
+#gsk-app .secondary,#gsk-app .export,#gsk-app .close,#gsk-app .place,#gsk-app .product-icon {
+  background:var(--color-background-dark,#e9f2f2);color:var(--gsk-text);
+}
+#gsk-app .secondary:hover {background:var(--color-background-darker,#d8eae9)}
+#gsk-app a,#gsk-app .actions a,#gsk-app .actions button,#gsk-app .eyebrow {
+  color:var(--color-primary-element,#00679e);
+}
+#gsk-app input,#gsk-app select,#gsk-app textarea {
+  background:var(--gsk-surface);color:var(--gsk-text);border-color:var(--gsk-border);
+}
+#gsk-app dialog,#gsk-app #product-dialog,
+#gsk-app #product-dialog .dialog-head,#gsk-app #product-dialog .form-section,
+#gsk-app .dialog-actions {background:var(--gsk-surface);color:var(--gsk-text)}
+#gsk-app .dialog-head,#gsk-app .dialog-actions,#gsk-app .form-section,
+#gsk-app #product-dialog .form-section,#gsk-app .actions,#gsk-app .below {border-color:var(--gsk-border)}
+#gsk-app .lookup-result {background:var(--color-background-hover,#eef7f7);border-color:var(--gsk-border)}
+@media(min-width:900px) {
+  #gsk-app .topbar,#gsk-app main {padding-left:28px;padding-right:28px}
+  #gsk-app #product-dialog {
+    width:calc(100vw - 32px);height:calc(100dvh - 72px);
+    max-height:calc(100dvh - 72px);border-radius:var(--border-radius-large,12px);
+    box-shadow:none;
+  }
+}
+@media(max-width:720px) {
+  #gsk-app .hero {padding:20px 0}
+  #gsk-app .section-head {flex-wrap:wrap}
+}

@@ -392,7 +392,7 @@ class InventoryController extends Controller {
                     'messages' => [['role' => 'system', 'content' => $instructions], ['role' => 'user', 'content' => $prompt]]];
             } else {
                 $endpoint = 'https://api.openai.com/v1/responses';
-                $request = ['model' => 'gpt-5.4-mini', 'store' => false, 'reasoning' => ['effort' => 'low'],
+                $request = ['model' => 'gpt-5.4-nano', 'store' => false, 'reasoning' => ['effort' => 'low'],
                     'max_output_tokens' => 2500, 'instructions' => $instructions, 'input' => $prompt,
                     'text' => ['format' => ['type' => 'json_object']]];
             }

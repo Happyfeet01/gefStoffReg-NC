@@ -53,6 +53,7 @@ Die Suche ist standardmäßig deaktiviert. Sie benötigt einen eigenen OpenAI-AP
 
 ```sh
 install -d -o root -g www-data -m 750 /etc/nextcloud
+umask 077
 read -rsp 'OpenAI-API-Schlüssel: ' GSK_KEY; echo
 printf '%s' "$GSK_KEY" > /etc/nextcloud/gefahrstoffkataster-openai.key
 unset GSK_KEY

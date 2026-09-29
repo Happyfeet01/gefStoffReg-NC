@@ -387,7 +387,7 @@ class InventoryController extends Controller {
             $prompt = json_encode(['query' => $query, 'manufacturer' => $manufacturer, 'mode' => $mode, 'search_results' => $documents], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
             if ($provider === 'mistral') {
                 $endpoint = 'https://api.mistral.ai/v1/chat/completions';
-                $request = ['model' => 'mistral-small-latest', 'temperature' => 0, 'max_tokens' => 1800,
+                $request = ['model' => 'ministral-8b-2512', 'temperature' => 0, 'max_tokens' => 1800,
                     'response_format' => ['type' => 'json_object'],
                     'messages' => [['role' => 'system', 'content' => $instructions], ['role' => 'user', 'content' => $prompt]]];
             } else {

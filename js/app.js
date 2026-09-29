@@ -141,13 +141,14 @@ function labelSuggestions(lines){
     const score=eanSeen?100:articleSeen&&manufacturerSeen?95:nameSeen&&manufacturerSeen?90:nameSeen?78:tokenSeen&&manufacturerSeen?72:0;
     return {product:p,score};
   }).filter(item=>item.score>=72).sort((a,b)=>b.score-a.score).slice(0,3);
-  const manufacturer=/flamingo|fwt gmbh/i.test(text)?'FWT GmbH Flamingo water technology':/witty/i.test(text)?'Witty':/aquatec/i.test(text)?'AquaTec':lines.some(line=>/^ja!/i.test(line.trim()))?'ja!':'';
+  const manufacturer=/flamingo|fwt gmbh/i.test(text)?'FWT GmbH Flamingo water technology':/witty/i.test(text)?'Witty':/aquatec/i.test(text)?'AquaTec':'';
   const plausible=lines.map(line=>line.trim()).filter(line=>{
     const clean=normalText(line);
     return clean.length>=5&&clean.length<=75&&/[a-z]{4}/i.test(clean)&&!/(anwendung|dosierung|gefahr|achtung|gmbh|telefon|www |schutz|schwimm|beckenwasser|trinkwasser|lager|produkt darf|desinfektion|abgerufen)/i.test(clean);
   });
   let name=plausible.find(line=>/[®™]/.test(line))||plausible.find(line=>/\b(?:witty|liqui|aqua|pool)\b/i.test(line))||'';
   if(!name&&/sp[uü]lmittel/i.test(text)&&/zitrone/i.test(text))name='Geschirrspülmittel Zitrone';
+  if(name&&lines.some(line=>/^ja!/i.test(line.trim())))name='ja! '+name;
   const pack=lines.map(line=>line.match(/\b(?:inhalt|nettoinhalt|gebinde(?:groesse|größe)?|fuellmenge|füllmenge)\s*:?\s*(\d+(?:[,.]\d+)?)\s*(kg|l|ml|g)\b/i)||line.trim().match(/^(\d+(?:[,.]\d+)?)\s*(kg|l|ml|g)$/i)).find(Boolean);
   return {scored,manufacturer,name:name.replace(/[®™]/g,'').trim(),pack:pack?{size:pack[1].replace(',','.'),unit:pack[2].toLowerCase()}:null};
 }

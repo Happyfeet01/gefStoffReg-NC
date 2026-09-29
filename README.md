@@ -51,7 +51,7 @@ Unter Profilmenü → Einstellungen → Persönlich → Weitere Einstellungen �
 
 Die App erwartet SearXNG fest unter `http://127.0.0.1:8384/search` auf dem Nextcloud-Host. Docker-Port nur an `127.0.0.1:8384:8080` binden. SearXNG benötigt `json` in `search.formats` und eine gezielte interne Freigabe in `limiter.toml`. Die öffentliche Oberfläche bleibt unter https://suche.dasnetzundich.de hinter Anubis. Die lokale HTTP-Freigabe gilt nur für diesen festen Endpunkt, ohne Weiterleitungen; globale Nextcloud-Sicherheitsoptionen müssen nicht geändert werden. Containerisierte Nextcloud-Installationen werden mit dieser Loopback-Adresse nicht unterstützt.
 
-Jeder Klick führt eine SearXNG-Suche und höchstens einen KI-Aufruf aus (Mistral: `mistral-small-latest`, OpenAI: `gpt-5.4-nano`, ohne Websearch-Tool). Maximal zwölf Treffer mit begrenzten Textauszügen werden zusammen mit Produktname/Herstellerhinweis an den ausgewählten Anbieter gesendet. Keine Fotos oder PDF-Inhalte. Die KI schlägt bis zu drei Varianten vor. URLs müssen aus den tatsächlichen Suchtreffern stammen. Textauszüge beweisen weder die Aktualität eines SDB noch die exakte Variante: vor Übernahme Originalquelle öffnen und prüfen. Gefahrstoff-Einstufung, UFI, GHS und H-Sätze werden nicht übernommen. PDFs lassen sich weiterhin manuell hochladen.
+Jeder Klick führt eine SearXNG-Suche und höchstens einen KI-Aufruf aus (Mistral: `ministral-8b-2512`, OpenAI: `gpt-5.4-nano`, ohne Websearch-Tool). Maximal zwölf Treffer mit begrenzten Textauszügen werden zusammen mit Produktname/Herstellerhinweis an den ausgewählten Anbieter gesendet. Keine Fotos oder PDF-Inhalte. Die KI schlägt bis zu drei Varianten vor. URLs müssen aus den tatsächlichen Suchtreffern stammen. Textauszüge beweisen weder die Aktualität eines SDB noch die exakte Variante: vor Übernahme Originalquelle öffnen und prüfen. Gefahrstoff-Einstufung, UFI, GHS und H-Sätze werden nicht übernommen. PDFs lassen sich weiterhin manuell hochladen.
 
 Suchfehler lösen keinen KI-Aufruf aus. Bei fehlendem Schlüssel oder erschöpftem Kontingent erfolgt kein automatischer Anbieterwechsel. Bestehende Produkte können weiter bearbeitet werden. Es gibt noch keinen Cache für wiederholte Suchaufrufe. Der End-to-End-Test erfordert die lokale SearXNG-Instanz und den persönlichen API-Schlüssel auf dem Zielserver.
 
@@ -71,3 +71,8 @@ Für eine Sicherung sind **Nextcloud-Datenbank und AppData** gemeinsam nötig. D
 
 Quellcode der App: AGPL-3.0-or-later. Das beigefügte Gemeindewappen wurde vom Nutzer als Bildvorlage geliefert; eine Weiterverbreitung der Grafik außerhalb des Projekts bedarf eigener Prüfung.
 
+
+
+## Korrekturen 0.1.18
+
+Mistral verwendet `/v1/chat/completions` mit `ministral-8b-2512`, passend zu Anfrage und Antwortparser. OpenAI Nano verwendet ein verbindliches JSON-Schema und reasoning `none`, damit das Ausgabelimit für die Formularantwort zur Verfügung steht. Unvollständige, abgelehnte, leere und fehlerhafte Antworten werden getrennt gemeldet. Quellenprüfung bleibt strikt: nicht belegte URLs werden nicht übernommen. Ergebnisfelder werden bei Suchmeldungen sichtbar gescrollt. Regressionstest: `php tests/research-response.php`. Live-API-Prüfung auf dem Zielserver erforderlich.

@@ -74,9 +74,9 @@ function openProduct(p=null){
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   show('product-dialog');
 }
-function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
-function sourceMessage(message){const box=$('source-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
-function sdsMessage(message){const box=$('sds-research-result');box.replaceChildren(el('p','',message));box.hidden=false;return box}
+function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;box.scrollIntoView({block:'nearest',behavior:'smooth'});return box}
+function sourceMessage(message){const box=$('source-result');box.replaceChildren(el('p','',message));box.hidden=false;box.scrollIntoView({block:'nearest',behavior:'smooth'});return box}
+function sdsMessage(message){const box=$('sds-research-result');box.replaceChildren(el('p','',message));box.hidden=false;box.scrollIntoView({block:'nearest',behavior:'smooth'});return box}
 async function lookupEan(){
   const ean=$('product-form').elements.ean.value.trim();
   if(!/^[0-9]{8,14}$/.test(ean)){lookupMessage('Bitte zuerst eine EAN/GTIN mit 8 bis 14 Ziffern scannen oder eingeben.');return}
@@ -180,7 +180,7 @@ async function researchProduct(){
   lookupMessage('Suche online nach Herstellerseiten und konkreten Produktvarianten …');
   try{
     const result=await request('/api/research',{query,manufacturer});
-    if(f.elements.name.value.trim()!==query)return;
+    if(f.elements.name.value.trim()!==query){notice('Suchergebnis verworfen: Der Produktname wurde während der Suche geändert.',true);return;}
     const box=lookupMessage(result.matches?.length?'Vorschläge aus Such-Titeln und Textauszügen. Bitte Originalquelle, Etikett, Artikelnummer und Packung vor der Übernahme vergleichen.':'Kein belegter Treffer zur eingegebenen Produktvariante. Bitte Suchbegriff präzisieren.');
     for(const match of result.matches||[]){
       const card=el('div','research-match');
@@ -210,7 +210,7 @@ $('sds-research-button').addEventListener('click',async()=>{
   const action=$('sds-research-button');action.disabled=true;sdsMessage('Suche nach einem offiziellen SDB zur konkreten Produktvariante …');
   try{
     const result=await request('/api/research',{query,manufacturer,mode:'sds'});
-    if(f.elements.name.value.trim()!==query)return;
+    if(f.elements.name.value.trim()!==query){notice('Suchergebnis verworfen: Der Produktname wurde während der Suche geändert.',true);return;}
     const box=sdsMessage(result.matches?.length?'Mögliche SDB aus Suchtreffern; PDF-Inhalte wurden nicht gelesen. Bitte Herausgeber, Variante und Ausgabedatum im Original-PDF prüfen.':'Kein belegter SDB-Link gefunden. Bitte direkt beim Hersteller oder Lieferanten anfordern.');
     for(const match of result.matches||[]){
       if(!match.sds_url)continue;
@@ -455,4 +455,5 @@ $('scan-manual').addEventListener('click',()=>{close('scan-dialog');$('product-f
 $('export-xlsx').href=url('/api/export/xlsx');
 $('export-csv').href=url('/api/export/csv');
 load();
+
 

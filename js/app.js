@@ -345,7 +345,7 @@ $('stock-form').addEventListener('submit',async event=>{
 });
 $('new-product').addEventListener('click',()=>openProduct());
 $('retry-load').addEventListener('click',load);
-$('add-location').addEventListener('click',async()=>{const name=prompt('Neuer Lagerort (z. B. Technikraum PLB):');if(name===null)return;try{await request('/api/locations',{name});await load();notice('Lagerort angelegt.')}catch(err){notice(err.message,true)}});
+$('add-location').addEventListener('click',async()=>{const name=prompt('Neuer Lagerort (z. B. Technikraum PLB):');if(name===null)return;try{const result=await request('/api/locations',{name});await load();notice(result.existing?'Dieser Lagerort ist bereits vorhanden und kann ausgewählt werden.':'Lagerort angelegt.')}catch(err){notice(err.message,true)}});
 for(const id of ['search','location-filter','hazard-filter'])$(id).addEventListener(id==='search'?'input':'change',render);
 $('stock-location').addEventListener('change',updateStockContext);
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.close)));

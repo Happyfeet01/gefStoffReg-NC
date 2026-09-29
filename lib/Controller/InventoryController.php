@@ -13,6 +13,8 @@ use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\Files\IAppData;
 use OCP\Files\NotFoundException;
+use OCP\DB\Exception as DatabaseException;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Http\Client\IClientService;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
@@ -66,6 +68,16 @@ class InventoryController extends Controller {
     private function rows(string $table): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')->from($table)->executeQuery()->fetchAllAssociative();
+    }
+
+    private function insertRow(string $table, array $data): int {
+        $qb = $this->db->getQueryBuilder();
+        $qb->insert($table);
+        foreach ($data as $column => $value) {
+            $qb->setValue($column, $qb->createNamedParameter($value, is_int($value) ? IQueryBuilder::PARAM_INT : IQueryBuilder::PARAM_STR));
+        }
+        $qb->executeStatement();
+        return $qb->getLastInsertId();
     }
 
     private function one(string $table, int $id): ?array {
@@ -143,7 +155,10 @@ class InventoryController extends Controller {
         try {
             if (!$this->rows('gsk_location')) {
                 foreach (['Chemieraum','Putzraum','Werkstatt','Technikkeller NSB','Technikkeller SB'] as $name) {
-                    try { $this->db->insert('gsk_location', ['name' => $name]); } catch (\Throwable $e) { /* simultaneous initialisation */ }
+                    try { $this->insertRow('gsk_location', ['name' => $name]); }
+                    catch (DatabaseException $e) {
+                        if ($e->getReason() !== DatabaseException::REASON_UNIQUE_CONSTRAINT_VIOLATION) throw $e;
+                    }
                 }
             }
             $products = [];
@@ -439,11 +454,25 @@ class InventoryController extends Controller {
         if (!$this->permitted()) return $this->denied();
         try {
             $name = $this->payload()['name'] ?? null;
-            if (!is_string($name) || mb_strlen(trim($name)) < 1 || mb_strlen(trim($name)) > 80) throw new \InvalidArgumentException('Lagerort ungültig.');
-            $this->db->insert('gsk_location', ['name' => trim($name)]);
-            return new DataResponse(['id' => (int)$this->db->lastInsertId('*PREFIX*gsk_location')], 201);
+            if (!is_string($name) || mb_strlen(trim($name)) < 1 || mb_strlen(trim($name)) > 80) throw new \InvalidArgumentException('Bitte einen Lagerort mit 1 bis 80 Zeichen eingeben.');
+            $name = trim($name);
+            foreach ($this->rows('gsk_location') as $location) {
+                if (mb_strtolower(trim($location['name'])) === mb_strtolower($name)) {
+                    return new DataResponse(['id' => (int)$location['id'], 'existing' => true]);
+                }
+            }
+            return new DataResponse(['id' => $this->insertRow('gsk_location', ['name' => $name]), 'existing' => false], 201);
+        } catch (\InvalidArgumentException|\JsonException $e) {
+            return $this->fail($e->getMessage());
+        } catch (DatabaseException $e) {
+            if ($e->getReason() === DatabaseException::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+                return $this->fail('Dieser Lagerort wurde bereits angelegt. Bitte die Übersicht neu laden.', 409);
+            }
+            $this->logger->error('Gefahrstoffkataster: Lagerort konnte nicht gespeichert werden.', ['exception' => $e]);
+            return $this->fail('Lagerort konnte wegen eines Datenbankfehlers nicht gespeichert werden. Details stehen im Nextcloud-Protokoll.', 500);
         } catch (\Throwable $e) {
-            return $this->fail('Lagerort ungültig oder bereits vorhanden.');
+            $this->logger->error('Gefahrstoffkataster: Lagerort konnte nicht gespeichert werden.', ['exception' => $e]);
+            return $this->fail('Lagerort konnte nicht gespeichert werden. Details stehen im Nextcloud-Protokoll.', 500);
         }
     }
 
@@ -453,8 +482,8 @@ class InventoryController extends Controller {
         try {
             $data = $this->validateProduct($this->payload());
             $time = gmdate('c');
-            $this->db->insert('gsk_product', ['details' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'created_at' => $time, 'updated_at' => $time]);
-            return new DataResponse(['id' => (int)$this->db->lastInsertId('*PREFIX*gsk_product')], 201);
+            $id = $this->insertRow('gsk_product', ['details' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'created_at' => $time, 'updated_at' => $time]);
+            return new DataResponse(['id' => $id], 201);
         } catch (\InvalidArgumentException|\JsonException $e) {
             return $this->fail($e->getMessage());
         }
@@ -466,7 +495,12 @@ class InventoryController extends Controller {
         if (!$this->one('gsk_product', $id)) return $this->fail('Produkt nicht gefunden.', 404);
         try {
             $data = $this->validateProduct($this->payload());
-            $this->db->update('gsk_product', ['details' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'updated_at' => gmdate('c')], ['id' => $id]);
+            $qb = $this->db->getQueryBuilder();
+            $qb->update('gsk_product')
+                ->set('details', $qb->createNamedParameter(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)))
+                ->set('updated_at', $qb->createNamedParameter(gmdate('c')))
+                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+                ->executeStatement();
             return new DataResponse(['id' => $id]);
         } catch (\InvalidArgumentException|\JsonException $e) {
             return $this->fail($e->getMessage());
@@ -505,9 +539,9 @@ class InventoryController extends Controller {
                     ->executeStatement();
                 if ($changed !== 1) throw new \RuntimeException('Bestand wurde gleichzeitig geändert. Bitte erneut laden.');
             } else {
-                $this->db->insert('gsk_stock', ['product_id' => $pid, 'location_id' => $lid, 'milli' => $after]);
+                $this->insertRow('gsk_stock', ['product_id' => $pid, 'location_id' => $lid, 'milli' => $after]);
             }
-            $this->db->insert('gsk_event', ['product_id' => $pid, 'location_id' => $lid, 'before_milli' => $before,
+            $this->insertRow('gsk_event', ['product_id' => $pid, 'location_id' => $lid, 'before_milli' => $before,
                 'after_milli' => $after, 'action' => $action, 'note' => trim($note),
                 'actor' => $this->session->getUser()->getUID(), 'created_at' => gmdate('c')]);
             $this->db->commit();
@@ -544,10 +578,10 @@ class InventoryController extends Controller {
         try {
             $folder = $this->documentFolder();
             $folder->newFile($storageName)->putContent($bytes);
-            $this->db->insert('gsk_file', ['product_id' => $id, 'kind' => $kind,
+            $fileId = $this->insertRow('gsk_file', ['product_id' => $id, 'kind' => $kind,
                 'filename' => $filename, 'mime' => $mime, 'storage_name' => $storageName,
                 'created_at' => gmdate('c')]);
-            return new DataResponse(['id' => (int)$this->db->lastInsertId('*PREFIX*gsk_file')], 201);
+            return new DataResponse(['id' => $fileId], 201);
         } catch (\Throwable $e) {
             try { $folder->getFile($storageName)->delete(); } catch (\Throwable $ignored) {}
             return $this->fail('Datei konnte nicht gespeichert werden.', 500);

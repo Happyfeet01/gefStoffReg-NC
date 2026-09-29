@@ -65,6 +65,8 @@ Alternativ kann PHP-FPM die Umgebungsvariable `GSK_OPENAI_API_KEY` erhalten. Fü
 
 ## Funktionen und Grenzen
 
+0.1.14 korrigiert die Schreibzugriffe auf die Datenbank: Einfügen und Produktänderungen laufen über Nextclouds öffentlichen QueryBuilder. Damit funktionieren auch die Initialisierung und das Anlegen von Lagerorten auf Nextcloud 35. Bereits vorhandene Lagerorte werden beim erneuten Eingeben erkannt; technische Fehler werden getrennt gemeldet und im Nextcloud-Protokoll dokumentiert.
+
 Seit 0.1.13 nutzt die Desktopübersicht bis zu 1680 Pixel Breite mit größerer Schrift. Die Produktmaske öffnet ab 900 Pixel Bildschirmbreite nahezu bildschirmfüllend, mit zwei Spalten für Formularabschnitte und einer dauerhaft sichtbaren Speicherleiste. Auf dem Smartphone bleibt die kompakte Formularansicht erhalten.
 
 - Produkte, Gebindegröße, Menge je Lagerort, Zugänge/Entnahmen/Korrekturen, Buchungsprotokoll in der Datenbank, mehrere Bilder und SDB-PDF.

@@ -14,21 +14,31 @@ class ApiKeyService {
         if ($user === null) throw new \RuntimeException('Anmeldung erforderlich.');
         return $user->getUID();
     }
-    public function hasPersonalKey(): bool {
-        return $this->config->getUserValue($this->uid(), self::APP, 'openai_key', '') !== '';
+    public function getProvider(): string {
+        return $this->config->getUserValue($this->uid(), self::APP, 'provider', 'openai') === 'mistral' ? 'mistral' : 'openai';
     }
-    public function save(string $key): void {
-        $this->config->setUserValue($this->uid(), self::APP, 'openai_key', $this->crypto->encrypt($key));
+    public function setProvider(string $provider): void {
+        if (!in_array($provider, ['openai', 'mistral'], true)) throw new \InvalidArgumentException();
+        $this->config->setUserValue($this->uid(), self::APP, 'provider', $provider);
     }
-    public function delete(): void {
-        $this->config->deleteUserValue($this->uid(), self::APP, 'openai_key');
+    public function hasPersonalKey(string $provider = 'openai'): bool {
+        return $this->config->getUserValue($this->uid(), self::APP, $provider . '_key', '') !== '';
+    }
+    public function save(string $key, string $provider = 'openai'): void {
+        $this->config->setUserValue($this->uid(), self::APP, $provider . '_key', $this->crypto->encrypt($key));
+    }
+    public function delete(string $provider = 'openai'): void {
+        $this->config->deleteUserValue($this->uid(), self::APP, $provider . '_key');
     }
     public function getKey(): string {
-        $encrypted = $this->config->getUserValue($this->uid(), self::APP, 'openai_key', '');
+        $provider = $this->getProvider();
+        $encrypted = $this->config->getUserValue($this->uid(), self::APP, $provider . '_key', '');
         if ($encrypted !== '') return $this->crypto->decrypt($encrypted);
+        if ($provider !== 'openai') return '';
         $key = trim((string)(getenv('GSK_OPENAI_API_KEY') ?: ''));
         $file = '/etc/nextcloud/gefahrstoffkataster-openai.key';
         if ($key === '' && is_readable($file)) $key = trim((string)file_get_contents($file));
         return $key;
     }
 }
+

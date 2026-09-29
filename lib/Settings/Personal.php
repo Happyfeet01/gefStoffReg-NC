@@ -11,8 +11,9 @@ class Personal implements ISettings {
     public function __construct(private ApiKeyService $keys) {}
     public function getForm(): TemplateResponse {
         Util::addScript('gefahrstoffkataster', 'settings');
-        return new TemplateResponse('gefahrstoffkataster', 'settings', ['configured' => $this->keys->hasPersonalKey()]);
+        return new TemplateResponse('gefahrstoffkataster', 'settings', ['provider' => $this->keys->getProvider(), 'openai' => $this->keys->hasPersonalKey('openai'), 'mistral' => $this->keys->hasPersonalKey('mistral')]);
     }
     public function getSection(): string { return 'additional'; }
     public function getPriority(): int { return 50; }
 }
+

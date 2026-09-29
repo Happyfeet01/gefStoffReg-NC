@@ -99,11 +99,11 @@ async function lookupEan(){
       const link=el('a','', 'Quelle ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
     }else{
       const box=lookupMessage('In Open Products Facts kein Treffer. Diese Datenbank enthält viele Spezialprodukte nicht.');
-      const link=el('a','', 'EAN im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+      const link=el('a','', 'EAN im Web suchen ↗');link.href='https://suche.dasnetzundich.de/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
     }
   }catch(err){
     const box=lookupMessage(err.message);
-    const link=el('a','', 'EAN im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+    const link=el('a','', 'EAN im Web suchen ↗');link.href='https://suche.dasnetzundich.de/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   }finally{button.disabled=false}
 }
 function buttonElement(label,action){const b=button(label,action);b.className='secondary';return b}
@@ -181,7 +181,7 @@ async function researchProduct(){
   try{
     const result=await request('/api/research',{query,manufacturer});
     if(f.elements.name.value.trim()!==query)return;
-    const box=lookupMessage(result.matches?.length?'Mögliche Varianten aus der Websuche. Bitte Etikett, Artikelnummer und Packung vor der Übernahme vergleichen.':'Kein belegter Treffer zur eingegebenen Produktvariante. Bitte Suchbegriff präzisieren.');
+    const box=lookupMessage(result.matches?.length?'Vorschläge aus Such-Titeln und Textauszügen. Bitte Originalquelle, Etikett, Artikelnummer und Packung vor der Übernahme vergleichen.':'Kein belegter Treffer zur eingegebenen Produktvariante. Bitte Suchbegriff präzisieren.');
     for(const match of result.matches||[]){
       const card=el('div','research-match');
       card.append(el('strong','',match.name));
@@ -200,7 +200,7 @@ async function researchProduct(){
     }
   }catch(err){
     const box=lookupMessage(err.message);
-    const link=el('a','','Produkt selbst im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent([manufacturer,query].filter(Boolean).join(' '));link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+    const link=el('a','','Produkt selbst im Web suchen ↗');link.href='https://suche.dasnetzundich.de/search?q='+encodeURIComponent([manufacturer,query].filter(Boolean).join(' '));link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   }finally{action.disabled=false}
 }
 $('research-button').addEventListener('click',researchProduct);
@@ -211,7 +211,7 @@ $('sds-research-button').addEventListener('click',async()=>{
   try{
     const result=await request('/api/research',{query,manufacturer,mode:'sds'});
     if(f.elements.name.value.trim()!==query)return;
-    const box=sdsMessage(result.matches?.length?'Mögliche Sicherheitsdatenblätter. Bitte Herausgeber, Variante und Ausgabedatum im PDF prüfen.':'Kein belegter SDB-Link gefunden. Bitte direkt beim Hersteller oder Lieferanten anfordern.');
+    const box=sdsMessage(result.matches?.length?'Mögliche SDB aus Suchtreffern; PDF-Inhalte wurden nicht gelesen. Bitte Herausgeber, Variante und Ausgabedatum im Original-PDF prüfen.':'Kein belegter SDB-Link gefunden. Bitte direkt beim Hersteller oder Lieferanten anfordern.');
     for(const match of result.matches||[]){
       if(!match.sds_url)continue;
       const card=el('div','research-match');card.append(el('strong','',match.name));
@@ -224,13 +224,13 @@ $('sds-research-button').addEventListener('click',async()=>{
     }
   }catch(err){
     const box=sdsMessage(err.message);
-    const link=el('a','','SDB selbst im Web suchen ↗');link.href='https://www.google.com/search?q='+encodeURIComponent([manufacturer,query,'Sicherheitsdatenblatt PDF'].filter(Boolean).join(' '));link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+    const link=el('a','','SDB selbst im Web suchen ↗');link.href='https://suche.dasnetzundich.de/search?q='+encodeURIComponent([manufacturer,query,'Sicherheitsdatenblatt PDF'].filter(Boolean).join(' '));link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   }finally{action.disabled=false}
 });
 $('manufacturer-search').addEventListener('click',()=>{
   const f=$('product-form');const terms=[f.elements.article.value,f.elements.name.value,f.elements.manufacturer.value].map(x=>x.trim()).filter(Boolean);
   if(!terms.length){sourceMessage('Bitte erst Produktname, Artikelnummer oder Hersteller eingeben.');return}
-  window.open('https://www.google.com/search?q='+encodeURIComponent(terms.join(' ')), '_blank', 'noopener,noreferrer');
+  window.open('https://suche.dasnetzundich.de/search?q='+encodeURIComponent(terms.join(' ')), '_blank', 'noopener,noreferrer');
   sourceMessage('Öffne die passende Herstellerseite im Suchergebnis und kopiere deren Link in das Feld „Link zur Herstellerseite“.');
 });
 $('source-preview').addEventListener('click',async()=>{
@@ -296,7 +296,7 @@ $('label-input').addEventListener('change',async event=>{
     }
     const search=el('a','', 'Produkt beim Hersteller suchen ↗');
     const suggestion=labelSuggestions(lines);
-    search.href='https://www.google.com/search?q='+encodeURIComponent([suggestion.manufacturer,suggestion.name||lines.filter(line=>normalText(line).length>=5).slice(0,3).join(' ')].filter(Boolean).join(' ')+' Produkt');
+    search.href='https://suche.dasnetzundich.de/search?q='+encodeURIComponent([suggestion.manufacturer,suggestion.name||lines.filter(line=>normalText(line).length>=5).slice(0,3).join(' ')].filter(Boolean).join(' ')+' Produkt');
     search.target='_blank';search.rel='noopener noreferrer';box.append(search);
     const possibleEan=lines.join(' ').match(/\b\d{8,14}\b/);
     if(possibleEan)box.append(buttonElement('Erkannte EAN '+possibleEan[0]+' suchen',()=>{$('product-form').elements.ean.value=possibleEan[0];lookupEan()}));
@@ -455,3 +455,4 @@ $('scan-manual').addEventListener('click',()=>{close('scan-dialog');$('product-f
 $('export-xlsx').href=url('/api/export/xlsx');
 $('export-csv').href=url('/api/export/csv');
 load();
+

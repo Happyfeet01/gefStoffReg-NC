@@ -4,41 +4,42 @@
     if (!form || form.dataset.ready) return;
     form.dataset.ready = 'true';
     const input = document.getElementById('gsk-api-key');
+    const provider = document.getElementById('gsk-provider');
     const remove = document.getElementById('gsk-key-delete');
+    const select = document.getElementById('gsk-provider-save');
     const message = document.getElementById('gsk-key-message');
     const status = document.getElementById('gsk-key-status');
     const save = form.querySelector('[type="submit"]');
-    let configured = !remove.disabled;
-    const update = async (action) => {
-      if (action === 'save' && !input.value.trim()) {
-        message.textContent = 'Bitte einen API-Schlüssel eingeben.';
-        return;
-      }
-      save.disabled = remove.disabled = true;
+    const configured = {openai: form.dataset.openai === '1', mistral: form.dataset.mistral === '1'};
+    const refresh = () => {
+      status.textContent = configured[provider.value] ? 'Persönlicher Schlüssel für diesen Anbieter gespeichert.' : 'Kein persönlicher Schlüssel für diesen Anbieter gespeichert.';
+      remove.disabled = !configured[provider.value];
+    };
+    provider.addEventListener('change', () => {input.value = ''; refresh(); message.textContent = 'Zum Aktivieren „Anbieter verwenden“ oder einen neuen Schlüssel speichern.';});
+    const update = async action => {
+      if (action === 'save' && !input.value.trim()) {message.textContent = 'Bitte einen API-Schlüssel eingeben.'; return;}
+      const chosen = provider.value;
+      save.disabled = remove.disabled = select.disabled = provider.disabled = true;
       message.textContent = 'Wird gespeichert …';
       try {
         const data = new FormData();
-        data.set('action', action);
+        data.set('action', action); data.set('provider', chosen);
         if (action === 'save') data.set('key', input.value.trim());
         const response = await fetch(OC.generateUrl('/apps/gefahrstoffkataster/api/settings/key'), {
-          method: 'POST', headers: { requesttoken: OC.requestToken }, body: data,
+          method: 'POST', headers: {requesttoken: OC.requestToken}, body: data,
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Speichern fehlgeschlagen.');
-        configured = result.configured;
+        configured[chosen] = result.configured;
         input.value = '';
-        status.textContent = configured ? 'Persönlicher API-Schlüssel gespeichert.' : 'Kein persönlicher API-Schlüssel gespeichert.';
-        message.textContent = configured ? 'Gespeichert. Du kannst die KI-Suche jetzt verwenden.' : 'Persönlicher Schlüssel gelöscht. Eine vorhandene Server-Konfiguration bleibt verfügbar.';
-      } catch (error) {
-        message.textContent = error.message || 'Speichern fehlgeschlagen.';
-      } finally {
-        save.disabled = false;
-        remove.disabled = !configured;
-      }
+        message.textContent = action === 'delete' ? 'Persönlicher Schlüssel gelöscht.' : 'Gespeichert. Anbieter: ' + (chosen === 'mistral' ? 'Mistral' : 'OpenAI') + '.';
+      } catch (error) {message.textContent = error.message || 'Speichern fehlgeschlagen.';}
+      finally {save.disabled = select.disabled = provider.disabled = false; refresh();}
     };
-    form.addEventListener('submit', event => { event.preventDefault(); update('save'); });
+    form.addEventListener('submit', event => {event.preventDefault(); update('save');});
     remove.addEventListener('click', () => update('delete'));
+    select.addEventListener('click', () => update('select'));
+    refresh();
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

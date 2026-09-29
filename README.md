@@ -45,25 +45,15 @@ Ab 0.1.9 können das SDB und das Produktmerkblatt als getrennte Links direkt bei
 
 Seit 0.1.11 wird ein JPEG/PNG/WebP-Etikettfoto vor der Texterkennung im Browser auf den mittleren Etikettbereich zugeschnitten, vergrößert und kontrastreicher gemacht. Wenn die Bildverarbeitung fehlschlägt, wird das Original gesendet. Ein deutlich lesbares „Geschirrspülmittel Zitrone“ und eine einzeln stehende Füllmenge wie „1 L“ können so als Stammdaten vorgeschlagen werden. Die Erkennung ist weiterhin OCR, keine Google-Lens-Bildsuche: Sie kann Logos und Schriften falsch lesen; den Treffer und die genaue Variante immer vor dem Speichern prüfen. Die Ergebnisbox nutzt auf schmalen Displays die volle Formularbreite.
 
-## Optionale KI-Websuche ab 0.1.12
+## Produktsuche mit SearXNG und KI (0.1.16)
 
-Nach Eingabe eines Produktnamens startet **„Mit KI im Web suchen“** eine Suche über die OpenAI Responses API mit Websuche. Bis zu drei Varianten werden mit anklickbarer Fundstelle und separat zu prüfender Artikelnummer/Gebindegröße angeboten. Erst **„Diese Variante übernehmen“** schreibt Stammdaten ins Formular. **„SDB mit KI suchen“** sucht gesondert nach einem offiziellen Sicherheitsdatenblatt und übernimmt den gefundenen Link erst nach Öffnen und Bestätigung. Das PDF lässt sich unabhängig davon weiter manuell hochladen. Ein erstplatziertes Suchergebnis gilt nicht automatisch als richtiges SDB. UFI, GHS, H-Sätze und Einstufung werden nie aus dieser Suche übernommen.
+Unter Profilmenü → Einstellungen → Persönlich → Weitere Einstellungen → Gefahrstoffkataster den Anbieter **Mistral** oder **OpenAI** auswählen und den jeweiligen API-Schlüssel speichern. Vorhandene OpenAI-Schlüssel bleiben erhalten. Schlüssel sind getrennt pro Benutzer und Anbieter mit ICrypto verschlüsselt. Löschen entfernt nur den ausgewählten persönlichen Schlüssel. OpenAI verwendet optional weiterhin `GSK_OPENAI_API_KEY` oder `/etc/nextcloud/gefahrstoffkataster-openai.key`. Mistral hat keinen OpenAI-Fallback. Die Kontingente des eigenen API-Vertrags gelten; kostenlose Verfügbarkeit wird nicht garantiert.
 
-Ab Version 0.1.15: Profilmenü → Einstellungen → Persönlich → Weitere Einstellungen → **Gefahrstoffkataster – KI-Produktsuche**. Dort den persönlichen API-Schlüssel speichern, ersetzen oder löschen. Er wird mit Nextclouds ICrypto verschlüsselt in den Benutzereinstellungen gespeichert und niemals an den Browser zurückgegeben. Der persönliche Schlüssel hat Vorrang vor der optionalen Server-Konfiguration; beim Löschen greift wieder deren Fallback. Speichern bestätigt die Ablage, die Gültigkeit bei OpenAI wird beim ersten Suchaufruf geprüft.
+Die App erwartet SearXNG fest unter `http://127.0.0.1:8384/search` auf dem Nextcloud-Host. Docker-Port nur an `127.0.0.1:8384:8080` binden. SearXNG benötigt `json` in `search.formats` und eine gezielte interne Freigabe in `limiter.toml`. Die öffentliche Oberfläche bleibt unter https://suche.dasnetzundich.de hinter Anubis. Die lokale HTTP-Freigabe gilt nur für diesen festen Endpunkt, ohne Weiterleitungen; globale Nextcloud-Sicherheitsoptionen müssen nicht geändert werden. Containerisierte Nextcloud-Installationen werden mit dieser Loopback-Adresse nicht unterstützt.
 
-Ohne persönlichen Schlüssel oder Server-Konfiguration ist die Suche deaktiviert. Sie benötigt einen eigenen OpenAI-API-Schlüssel mit separater API-Abrechnung; ein ChatGPT-Abo stellt keinen API-Schlüssel bereit. Nur der eingegebene Produktname und ein optionaler Herstellerhinweis werden bei einem Klick an die API gesendet. Der Schlüssel bleibt serverseitig und darf nicht ins Git-Repository oder Browser-JavaScript. Auf einem Debian-Server als root einrichten:
+Jeder Klick führt eine SearXNG-Suche und höchstens einen KI-Aufruf aus (Mistral: `mistral-small-latest`, OpenAI: `gpt-5.4-mini`, ohne Websearch-Tool). Maximal zwölf Treffer mit begrenzten Textauszügen werden zusammen mit Produktname/Herstellerhinweis an den ausgewählten Anbieter gesendet. Keine Fotos oder PDF-Inhalte. Die KI schlägt bis zu drei Varianten vor. URLs müssen aus den tatsächlichen Suchtreffern stammen. Textauszüge beweisen weder die Aktualität eines SDB noch die exakte Variante: vor Übernahme Originalquelle öffnen und prüfen. Gefahrstoff-Einstufung, UFI, GHS und H-Sätze werden nicht übernommen. PDFs lassen sich weiterhin manuell hochladen.
 
-```sh
-install -d -o root -g www-data -m 750 /etc/nextcloud
-umask 077
-read -rsp 'OpenAI-API-Schlüssel: ' GSK_KEY; echo
-printf '%s' "$GSK_KEY" > /etc/nextcloud/gefahrstoffkataster-openai.key
-unset GSK_KEY
-chown root:www-data /etc/nextcloud/gefahrstoffkataster-openai.key
-chmod 640 /etc/nextcloud/gefahrstoffkataster-openai.key
-```
-
-Alternativ kann PHP-FPM die Umgebungsvariable `GSK_OPENAI_API_KEY` erhalten. Für die Dateivariante muss `www-data` die Schlüsseldatei lesen können. Die App verwendet `gpt-5.4-mini`, erzwingt einen Websuchaufruf, überträgt keine Fotos oder SDB-PDFs an OpenAI und setzt `store: false`. OpenAI berechnet Modellnutzung und Websuche nach den gültigen API-Preisen. Bei fehlendem Schlüssel zeigt die App eine verständliche Meldung und bietet weiterhin den manuellen Weblink. Nach Einrichtung zunächst mit einem klar benannten Produkt auf der Testinstanz prüfen; in dieser Entwicklungsumgebung stand kein API-Schlüssel und keine laufende Nextcloud zur Verfügung.
+Suchfehler lösen keinen KI-Aufruf aus. Bei fehlendem Schlüssel oder erschöpftem Kontingent erfolgt kein automatischer Anbieterwechsel. Bestehende Produkte können weiter bearbeitet werden. Es gibt noch keinen Cache für wiederholte Suchaufrufe. Der End-to-End-Test erfordert die lokale SearXNG-Instanz und den persönlichen API-Schlüssel auf dem Zielserver.
 
 ## Funktionen und Grenzen
 
@@ -80,3 +70,4 @@ Seit 0.1.13 nutzt die Desktopübersicht bis zu 1680 Pixel Breite mit größerer 
 Für eine Sicherung sind **Nextcloud-Datenbank und AppData** gemeinsam nötig. Der Tabellenexport ist keine vollständige Datensicherung für Fotos, PDFs und Buchungshistorie.
 
 Quellcode der App: AGPL-3.0-or-later. Das beigefügte Gemeindewappen wurde vom Nutzer als Bildvorlage geliefert; eine Weiterverbreitung der Grafik außerhalb des Projekts bedarf eigener Prüfung.
+

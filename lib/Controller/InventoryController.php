@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace OCA\Gefahrstoffkataster\Controller;
 
+use OCA\Gefahrstoffkataster\Service\ApiKeyService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -48,8 +49,31 @@ class InventoryController extends Controller {
         private IURLGenerator $urls,
         private LoggerInterface $logger,
         private IClientService $clientService,
+        private ApiKeyService $apiKeys,
     ) {
         parent::__construct($appName, $request);
+    }
+
+    #[NoAdminRequired]
+    public function saveApiKey(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        $action = (string)$this->request->getParam('action', '');
+        try {
+            if ($action === 'delete') {
+                $this->apiKeys->delete();
+                return new DataResponse(['configured' => false]);
+            }
+            if ($action !== 'save') return $this->fail('Ungültige Aktion.');
+            $key = trim((string)$this->request->getParam('key', ''));
+            if (!preg_match('/^sk-[A-Za-z0-9_-]{16,509}$/D', $key)) {
+                return $this->fail('Bitte einen gültigen OpenAI-API-Schlüssel eingeben (beginnt mit sk-).');
+            }
+            $this->apiKeys->save($key);
+            return new DataResponse(['configured' => true]);
+        } catch (\Throwable $e) {
+            // Do not log exceptions here: their arguments could contain the API key.
+            return $this->fail('Der API-Schlüssel konnte nicht gespeichert werden. Bitte erneut versuchen.', 500);
+        }
     }
 
     private function permitted(): bool {
@@ -314,10 +338,8 @@ class InventoryController extends Controller {
             if (mb_strlen($query) < 4 || mb_strlen($query) > 160 || mb_strlen($manufacturer) > 120) {
                 return $this->fail('Bitte einen Produktnamen mit mindestens vier Zeichen eingeben.');
             }
-            $key = trim((string)(getenv('GSK_OPENAI_API_KEY') ?: ''));
-            $keyFile = '/etc/nextcloud/gefahrstoffkataster-openai.key';
-            if ($key === '' && is_readable($keyFile)) $key = trim((string)file_get_contents($keyFile));
-            if ($key === '') return $this->fail('KI-Websuche ist noch nicht eingerichtet: API-Schlüssel auf dem Server hinterlegen. Die normale Websuche bleibt verfügbar.', 503);
+            $key = $this->apiKeys->getKey();
+            if ($key === '') return $this->fail('Bitte unter Persönliche Einstellungen → Weitere Einstellungen → Gefahrstoffkataster deinen OpenAI-API-Schlüssel hinterlegen.', 503);
 
             $candidate = [
                 'type' => 'object', 'additionalProperties' => false,

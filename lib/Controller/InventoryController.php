@@ -29,12 +29,12 @@ class InventoryController extends Controller {
         'ufi' => 80, 'category' => 80, 'use_area' => 100, 'unit' => 20,
         'classification' => 600, 'ghs' => 120, 'signal' => 40,
         'h_statements' => 1500, 'storage_note' => 800,
-        'source_url' => 600, 'sds_url' => 600,
+        'source_url' => 600, 'sds_url' => 600, 'pmb_url' => 600,
     ];
     private const HEADERS = ['Produkt','Hersteller','Artikelnummer','EAN','UFI',
         'Einsatzbereich','Kategorie','Lagerort','Gebindeanzahl','Gebindegröße',
         'Einheit','Gesamtmenge','Gefahrstoff','Einstufung','GHS','Signalwort',
-        'H-Sätze','SDB-Datum','SDB-Datei','Geprüft am','Hinweise','Herstellerseite','Hersteller-SDB-Link'];
+        'H-Sätze','SDB-Datum','SDB-PDF in Nextcloud','Geprüft am','Hinweise','Herstellerseite','Hersteller-SDB-Link','Produktmerkblatt-Link'];
 
     public function __construct(
         string $appName,
@@ -109,7 +109,7 @@ class InventoryController extends Controller {
             throw new \InvalidArgumentException('Gefahrstoff muss Ja oder Nein sein.');
         }
         $data['hazardous'] = $input['hazardous'];
-        foreach (['source_url','sds_url'] as $field) {
+        foreach (['source_url','sds_url','pmb_url'] as $field) {
             if ($data[$field] !== '' && (!filter_var($data[$field], FILTER_VALIDATE_URL) || parse_url($data[$field], PHP_URL_SCHEME) !== 'https')) {
                 throw new \InvalidArgumentException($field . ': Nur HTTPS-Links sind erlaubt.');
             }
@@ -231,7 +231,7 @@ class InventoryController extends Controller {
             $name = $headings && $headings->length ? trim(preg_replace('/\s+/u', ' ', $headings->item(0)->textContent)) : '';
             $text = preg_replace('/\s+/u', ' ', $document->textContent);
             $result = ['name' => mb_substr($name, 0, 160), 'manufacturer' => $host === 'www.witty.eu' || $host === 'witty.eu' ? 'Witty' : 'FWT GmbH Flamingo water technology',
-                'article' => '', 'pack_size' => null, 'unit' => '', 'source_url' => $input, 'sds_url' => ''];
+                'article' => '', 'pack_size' => null, 'unit' => '', 'source_url' => $input, 'sds_url' => '', 'pmb_url' => ''];
             if (str_ends_with($host, 'witty.eu')) {
                 if (preg_match('/Artikelnummer\s*:\s*(\d{4,12})/u', $text, $m)) $result['article'] = $m[1];
                 if (preg_match('/Inhalt\s*:\s*([\d,.]+)\s*(Kilogramm|kg|Liter|l)\b/ui', $text, $m)) {
@@ -242,6 +242,13 @@ class InventoryController extends Controller {
                     $href = $link->getAttribute('href');
                     if (str_starts_with($href, '/product/download/')) {
                         $result['sds_url'] = 'https://' . $host . $href;
+                        break;
+                    }
+                }
+                foreach ($xpath->query('//a[contains(translate(normalize-space(.), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "produktmerkblatt")]') ?: [] as $link) {
+                    $href = $link->getAttribute('href');
+                    if (str_starts_with($href, '/product/download/')) {
+                        $result['pmb_url'] = 'https://' . $host . $href;
                         break;
                     }
                 }
@@ -477,7 +484,7 @@ class InventoryController extends Controller {
                     $count, $p['pack_size'], $p['unit'], round($count * $p['pack_size'], 6),
                     !empty($p['hazardous']) ? 'Ja' : 'Nein', $p['classification'], $p['ghs'],
                     $p['signal'], $p['h_statements'], $p['sds_date'], $fileUrl,
-                    $p['checked_at'], $p['storage_note'], $p['source_url'] ?? '', $p['sds_url'] ?? ''];
+                    $p['checked_at'], $p['storage_note'], $p['source_url'] ?? '', $p['sds_url'] ?? '', $p['pmb_url'] ?? ''];
             }
         }
         return $result;

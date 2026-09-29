@@ -31,18 +31,19 @@ function button(label,action){const b=el('button','',label);b.type='button';b.ad
 function render(){
   $('count-products').textContent=state.products.length;
   $('count-hazards').textContent=state.products.filter(x=>x.hazardous).length;
-  $('count-missing').textContent=state.products.filter(x=>x.hazardous&&!x.sds_id).length;
+  $('count-missing').textContent=state.products.filter(x=>x.hazardous&&!x.sds_id&&!x.sds_url).length;
   $('count-locations').textContent=state.locations.length;
   optionize($('location-filter'),$('location-filter').value,'Alle Lagerorte');
   const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;
-  const matching=state.products.filter(p=>(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id));
+  const matching=state.products.filter(p=>(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
   const list=$('product-list');list.replaceChildren();$('empty').hidden=matching.length>0;
   if(!matching.length)$('empty').textContent=state.products.length?'Keine Produkte für diese Filter gefunden.':'Hier ist noch kein Produkt erfasst. Starte mit dem ersten Gebinde.';
   for(const p of matching){
     const card=el('article','card');const top=el('div','card-top');top.append(el('div','product-icon',p.hazardous?'!':'●'));
     const details=el('div');details.append(el('h3','',p.name),el('small','muted',[p.manufacturer,p.category].filter(Boolean).join(' · ')||'Noch keine weiteren Angaben'));
     if(p.hazardous)details.append(el('span','badge hazard','Gefahrstoff'));
-    if(p.hazardous&&!p.sds_id)details.append(el('span','badge warn','SDB fehlt'));
+    if(p.hazardous&&!p.sds_id&&!p.sds_url)details.append(el('span','badge warn','SDB fehlt'));
+    if(p.sds_url&&!p.sds_id)details.append(el('span','badge','SDB als Herstellerlink'));
     if(p.hazardous&&!p.checked_at)details.append(el('span','badge warn','Prüfung offen'));
     top.append(details);card.append(top);
     const total=p.stock.reduce((a,s)=>a+s.packs,0);const quantity=el('div','card-stock');quantity.append(el('strong','',`${format(total*p.pack_size)} ${p.unit}`),el('small','',`${format(total)} × ${format(p.pack_size)} ${p.unit}`));card.append(quantity);
@@ -51,6 +52,7 @@ function render(){
     if(p.sds_id){const link=el('a','', 'SDB herunterladen ↗');link.href=url(`/api/files/${p.sds_id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
     if(p.source_url){const link=el('a','', 'Herstellerseite ↗');link.href=p.source_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
     if(p.sds_url){const link=el('a','', 'SDB beim Hersteller ↗');link.href=p.sds_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
+    if(p.pmb_url){const link=el('a','', 'Produktmerkblatt ↗');link.href=p.pmb_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
     for(const photo of p.photos||[]){const link=el('a','', 'Foto herunterladen ↗');link.href=url(`/api/files/${photo.id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
     card.append(actions);list.append(card);
   }
@@ -65,7 +67,7 @@ function openProduct(p=null){
   $('dialog-title').textContent=p?'Produkt bearbeiten':'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));
-  if(p){for(const name of ['name','manufacturer','article','ean','ufi','category','use_area','pack_size','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url'])f.elements[name].value=p[name]??'';f.elements.hazardous.checked=!!p.hazardous}
+  if(p){for(const name of ['name','manufacturer','article','ean','ufi','category','use_area','pack_size','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url'])f.elements[name].value=p[name]??'';f.elements.hazardous.checked=!!p.hazardous}
   const links=$('current-files');links.replaceChildren();
   if(p?.sds_id){const a=el('a','', 'Vorhandenes SDB ↗');a.href=url(`/api/files/${p.sds_id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
@@ -142,8 +144,10 @@ $('source-preview').addEventListener('click',async()=>{
       if(data.article)f.elements.article.value=data.article;
       if(data.pack_size){f.elements.pack_size.value=data.pack_size;f.elements.unit.value=data.unit}
       if(data.sds_url)f.elements.sds_url.value=data.sds_url;
+      if(data.pmb_url)f.elements.pmb_url.value=data.pmb_url;
       const result=sourceMessage('Stammdaten übernommen. Variante und SDB-Link prüfen; GHS und H-Sätze anhand des SDB eintragen.');
       if(data.sds_url){const link=el('a','', 'Hersteller-SDB öffnen ↗');link.href=data.sds_url;link.target='_blank';link.rel='noopener noreferrer';result.append(link)}
+      if(data.pmb_url){const link=el('a','', 'Produktmerkblatt öffnen ↗');link.href=data.pmb_url;link.target='_blank';link.rel='noopener noreferrer';result.append(link)}
     }));
     const link=el('a','', 'Herstellerseite ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   }catch(err){sourceMessage('Einlesen fehlgeschlagen: '+err.message)}finally{action.disabled=false;action.textContent='Herstellerseite einlesen'}
@@ -185,7 +189,7 @@ $('product-form').addEventListener('submit',async event=>{
   event.preventDefault();const save=$('save-product');save.disabled=true;save.textContent='Speichere …';
   try{
     const f=event.currentTarget;
-    const keys=['name','manufacturer','article','ean','ufi','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url'];
+    const keys=['name','manufacturer','article','ean','ufi','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url'];
     const body=Object.fromEntries(keys.map(k=>[k,f.elements[k].value.trim()]));
     Object.assign(body,{pack_size:Number(f.elements.pack_size.value),hazardous:f.elements.hazardous.checked});
     const isNew=!state.current;

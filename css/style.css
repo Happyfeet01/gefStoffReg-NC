@@ -16,3 +16,6 @@
 #gsk-app .lookup-result p{width:100%;margin:0 0 4px}
 #gsk-app .lookup-result button{white-space:normal;text-align:left;padding:8px 10px}
 #gsk-app .lookup-result a{padding:8px 2px}
+#gsk-app .grid > .full{grid-column:1/-1;min-width:0}
+#gsk-app .lookup-result details{width:100%;min-width:0}
+#gsk-app .lookup-result details button{margin:4px;max-width:100%;overflow-wrap:anywhere}

@@ -106,6 +106,28 @@ async function lookupEan(){
 }
 function buttonElement(label,action){const b=button(label,action);b.className='secondary';return b}
 function normalText(value){return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('de').replace(/[^a-z0-9]+/g,' ').trim()}
+async function preparedLabelPhoto(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type))return file;
+  const objectUrl=URL.createObjectURL(file);
+  try{
+    const photo=new Image();photo.src=objectUrl;await photo.decode();
+    const cropWidth=Math.round(photo.naturalWidth*.82),cropHeight=Math.round(photo.naturalHeight*.78);
+    const scale=Math.min(2,2400/cropWidth,3000/cropHeight);
+    const canvas=document.createElement('canvas');canvas.width=Math.round(cropWidth*scale);canvas.height=Math.round(cropHeight*scale);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('Bildverarbeitung nicht verfügbar');
+    ctx.drawImage(photo,Math.round((photo.naturalWidth-cropWidth)/2),Math.round((photo.naturalHeight-cropHeight)/2),cropWidth,cropHeight,0,0,canvas.width,canvas.height);
+    const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+    for(let i=0;i<pixels.data.length;i+=4){
+      const gray=.299*pixels.data[i]+.587*pixels.data[i+1]+.114*pixels.data[i+2];
+      const value=Math.max(0,Math.min(255,(gray-128)*1.35+140));
+      pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=value;
+    }
+    ctx.putImageData(pixels,0,0);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9));
+    if(!blob)throw Error('Bild konnte nicht vorbereitet werden');
+    return new File([blob],'etikett-optimiert.jpg',{type:'image/jpeg'});
+  }finally{URL.revokeObjectURL(objectUrl)}
+}
 function labelSuggestions(lines){
   const text=normalText(lines.join(' '));
   const scored=state.products.map(p=>{
@@ -119,13 +141,14 @@ function labelSuggestions(lines){
     const score=eanSeen?100:articleSeen&&manufacturerSeen?95:nameSeen&&manufacturerSeen?90:nameSeen?78:tokenSeen&&manufacturerSeen?72:0;
     return {product:p,score};
   }).filter(item=>item.score>=72).sort((a,b)=>b.score-a.score).slice(0,3);
-  const manufacturer=/flamingo|fwt gmbh/i.test(text)?'FWT GmbH Flamingo water technology':/witty/i.test(text)?'Witty':/aquatec/i.test(text)?'AquaTec':'';
+  const manufacturer=/flamingo|fwt gmbh/i.test(text)?'FWT GmbH Flamingo water technology':/witty/i.test(text)?'Witty':/aquatec/i.test(text)?'AquaTec':lines.some(line=>/^ja!/i.test(line.trim()))?'ja!':'';
   const plausible=lines.map(line=>line.trim()).filter(line=>{
     const clean=normalText(line);
     return clean.length>=5&&clean.length<=75&&/[a-z]{4}/i.test(clean)&&!/(anwendung|dosierung|gefahr|achtung|gmbh|telefon|www |schutz|schwimm|beckenwasser|trinkwasser|lager|produkt darf|desinfektion|abgerufen)/i.test(clean);
   });
-  const name=plausible.find(line=>/[®™]/.test(line))||plausible.find(line=>/\b(?:witty|liqui|aqua|pool)\b/i.test(line))||'';
-  const pack=lines.map(line=>line.match(/\b(?:inhalt|nettoinhalt|gebinde(?:groesse|größe)?|fuellmenge|füllmenge)\s*:?\s*(\d+(?:[,.]\d+)?)\s*(kg|l|ml|g)\b/i)).find(Boolean);
+  let name=plausible.find(line=>/[®™]/.test(line))||plausible.find(line=>/\b(?:witty|liqui|aqua|pool)\b/i.test(line))||'';
+  if(!name&&/sp[uü]lmittel/i.test(text)&&/zitrone/i.test(text))name='Geschirrspülmittel Zitrone';
+  const pack=lines.map(line=>line.match(/\b(?:inhalt|nettoinhalt|gebinde(?:groesse|größe)?|fuellmenge|füllmenge)\s*:?\s*(\d+(?:[,.]\d+)?)\s*(kg|l|ml|g)\b/i)||line.trim().match(/^(\d+(?:[,.]\d+)?)\s*(kg|l|ml|g)$/i)).find(Boolean);
   return {scored,manufacturer,name:name.replace(/[®™]/g,'').trim(),pack:pack?{size:pack[1].replace(',','.'),unit:pack[2].toLowerCase()}:null};
 }
 $('lookup-button').addEventListener('click',lookupEan);
@@ -181,7 +204,9 @@ $('label-input').addEventListener('change',async event=>{
   const file=event.currentTarget.files?.[0];if(!file)return;
   const box=lookupMessage('Etiketttext wird auf deinem Nextcloud-Server erkannt …');
   try{
-    const data=new FormData();data.set('file',file,file.name);
+    let ocrFile=file;
+    try{ocrFile=await preparedLabelPhoto(file)}catch{ocrFile=file}
+    const data=new FormData();data.set('file',ocrFile,ocrFile.name);
     const response=await fetch(url('/api/label'),{method:'POST',headers:{requesttoken:OC.requestToken},body:data});
     const result=await response.json();if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);
     const lines=result.lines||[];
@@ -213,7 +238,8 @@ $('label-input').addEventListener('change',async event=>{
       box.append(extracted);
     }
     const search=el('a','', 'Produkt beim Hersteller suchen ↗');
-    search.href='https://www.google.com/search?q='+encodeURIComponent(lines.slice(0,2).join(' ')+' Sicherheitsdatenblatt Hersteller');
+    const suggestion=labelSuggestions(lines);
+    search.href='https://www.google.com/search?q='+encodeURIComponent([suggestion.manufacturer,suggestion.name||lines.filter(line=>normalText(line).length>=5).slice(0,3).join(' ')].filter(Boolean).join(' ')+' Produkt');
     search.target='_blank';search.rel='noopener noreferrer';box.append(search);
     const possibleEan=lines.join(' ').match(/\b\d{8,14}\b/);
     if(possibleEan)box.append(buttonElement('Erkannte EAN '+possibleEan[0]+' suchen',()=>{$('product-form').elements.ean.value=possibleEan[0];lookupEan()}));

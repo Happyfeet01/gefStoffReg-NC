@@ -9,7 +9,7 @@ const read=file=>readFileSync(path.join(root,file),'utf8');
 const template=read('templates/main.php').replace(/^<\?php[\s\S]*?\?>/,'');
 const token='1760000000-'+'a'.repeat(32);
 const sourceUrl='https://manufacturer.example/sds.pdf';
-const product={id:1,name:'Witty Poolreiniger',manufacturer:'Witty',article:'123456',ean:'4001234567890',category:'Reinigung',use_area:'Becken',pack_size:10,unit:'l',hazardous:false,classification:'',ghs:'',signal:'',h_statements:'',checked_at:'',sds_date:'2024-04-02',sds_url:sourceUrl,sds_id:null,stock:[{location_id:1,packs:3}],photos:[]};
+const product={id:1,name:'Witty Poolreiniger',manufacturer:'Witty',article:'123456',ean:'4001234567890',category:'Reinigung',use_area:'Becken',pack_size:10,unit:'l',hazardous:false,classification:'',ghs:'',signal:'',h_statements:'',checked_at:'',sds_date:'2024-04-02',source_url:'https://manufacturer.example/product',sds_url:sourceUrl,sds_id:null,stock:[{location_id:1,packs:3}],photos:[]};
 const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.repeat(64),ocr_pages:[],page_limit:4,draft_token:token,
   notice:'Produkt, Hersteller und SDB-Version im Original prüfen.',suggestions:[{field:'classification',value:'Skin Corr. 1A',evidence:[{page:2,text:'Skin Corr. 1A H314'}]}],evidence:[{page:2,text:'Skin Corr. 1A H314'}]};
 (async()=>{
@@ -40,6 +40,17 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
       });
       await page.goto('https://gsk.test/');
       await page.getByRole('button',{name:'Bearbeiten',exact:true}).waitFor();
+      const actionLines=await page.locator('.card .actions').evaluate(container=>[...container.children].map(node=>{
+        const range=document.createRange();range.selectNodeContents(node);
+        const box=node.getBoundingClientRect(),text=range.getBoundingClientRect(),style=getComputedStyle(node);
+        return {label:node.textContent,row:Math.round(box.top),textTop:text.top,display:style.display,lineHeight:style.lineHeight};
+      }));
+      // Inline flex containers are blockified when they are themselves flex items.
+      for(const action of actionLines){assert.equal(action.display,'flex');assert.equal(action.lineHeight,'20px');}
+      for(const row of new Set(actionLines.map(action=>action.row))){
+        const positions=actionLines.filter(action=>action.row===row).map(action=>action.textTop);
+        assert.ok(Math.max(...positions)-Math.min(...positions)<1,JSON.stringify(actionLines));
+      }
       const assertClosed=async id=>{
         assert.equal(await page.locator('#'+id).evaluate(dialog=>dialog.open),false,id+' should be closed');
         assert.equal(await page.locator('#'+id).isVisible(),false,id+' is visible without the open attribute');

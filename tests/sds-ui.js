@@ -12,7 +12,7 @@ class Element {
 }
 const elements={
   'sds-file':Object.assign(new Element(),{files:[]}),
-  'product-form':{elements:Object.fromEntries(['name','manufacturer','classification','signal','ghs','h_statements','hazardous'].map(key=>[key,{value:'existing '+key,checked:true}]))},
+  'product-form':{elements:Object.fromEntries(['name','manufacturer','classification','signal','ghs','h_statements','hazardous','sds_url'].map(key=>[key,{value:key==='sds_url'?'':'existing '+key,checked:true}]))},
 };
 const form=elements['product-form'];
 let status='classified',lastRequest;
@@ -25,7 +25,7 @@ const context={
   notice:()=>{},url:path=>path,OC:{requestToken:'test-token'},
   fetch:async(path,options)=>{
     lastRequest={path,...options};
-    return {ok:true,json:async()=>({status,filename:'SDB.pdf',sha256:'a'.repeat(64),ocr_pages:[],page_limit:4,notice:'Check original',
+    return {ok:true,json:async()=>({status,filename:'SDB.pdf',sha256:'a'.repeat(64),ocr_pages:[],page_limit:4,draft_token:options.body.get('source_url')?'test-draft':null,notice:'Check original',
       suggestions:[{field:'classification',value:'Skin Corr. 1A',evidence:[{page:1,text:'Skin Corr. 1A H314'}]}],evidence:[]})};
   },
 };
@@ -58,5 +58,17 @@ vm.runInContext(source.slice(source.indexOf('let sdsAnalysisGeneration='),source
     find('Ergebnis als Prüfvermerk übernehmen').action();assert.equal(form.sdsReview.status,value);
   }
   elements['sds-file'].onchange();assert.equal(form.sdsReview,null,'Changed PDF retained review');
+  context.state.current={sds_id:null};form.elements.sds_url.value='https://manufacturer.example/sds.pdf';
+  context.setupSdsAnalysis();await find('SDB auswerten').action();
+  assert.equal(lastRequest.body.get('source_url'),form.elements.sds_url.value,'Link-only product not supported');
+  assert.equal(form.sdsDraft.token,'test-draft','Downloaded PDF not staged');
+  assert.equal(find('Original-SDB öffnen ↗').href,'/api/sds-preview/test-draft','Preview does not use exact local PDF');
+  context.state.current={sds_id:17,sds_review:{status:'classified',sha256:'b'.repeat(64),filename:'old.pdf',reviewed_at:'2026-10-01T10:00:00.000Z'}};context.setupSdsAnalysis();await find('SDB auswerten').action();
+  assert.equal(form.sdsReview,null,'Review for different PDF remained valid');
+  assert.equal(lastRequest.body.get('file_id'),'17','Existing copy should be used by default');
+  await find('SDB vom Link aktualisieren').action();
+  assert.equal(lastRequest.body.get('source_url'),form.elements.sds_url.value,'Refresh did not use manufacturer link');
+  assert.equal(form.elements.sds_url.value,'https://manufacturer.example/sds.pdf','Manufacturer link lost');
+  form.elements.sds_url.oninput();assert.equal(form.sdsDraft,null,'Changed link retained draft');
   console.log('SDB UI confirmation, existing file, stale product and review-status cases passed');
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -7,6 +7,8 @@ use OCA\Gefahrstoffkataster\Service\ApiKeyService;
 use OCA\Gefahrstoffkataster\Service\ResearchResponse;
 use OCA\Gefahrstoffkataster\Service\SdsAnalysis;
 use OCA\Gefahrstoffkataster\Service\SdsTextExtractor;
+use OCA\Gefahrstoffkataster\Service\SdsDownloader;
+use OCA\Gefahrstoffkataster\Service\SdsDraftStore;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -26,6 +28,7 @@ use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\Util;
+use OCP\Security\IRemoteHostValidator;
 use Psr\Log\LoggerInterface;
 
 class InventoryController extends Controller {
@@ -53,6 +56,7 @@ class InventoryController extends Controller {
         private LoggerInterface $logger,
         private IClientService $clientService,
         private ApiKeyService $apiKeys,
+        private IRemoteHostValidator $remoteHosts,
     ) {
         parent::__construct($appName, $request);
     }
@@ -187,7 +191,8 @@ class InventoryController extends Controller {
             return $this->denied();
         }
         Util::addStyle('gefahrstoffkataster', 'style');
-        Util::addScript('gefahrstoffkataster', 'scanner');
+        // Keep an already deployed decoder optional; never request a missing script.
+        if (is_file(__DIR__ . '/../../js/scanner.js')) Util::addScript('gefahrstoffkataster', 'scanner');
         Util::addScript('gefahrstoffkataster', 'app');
         return new TemplateResponse('gefahrstoffkataster', 'main');
     }
@@ -222,7 +227,7 @@ class InventoryController extends Controller {
             foreach ($this->rows('gsk_file') as $row) {
                 if (!isset($products[$row['product_id']])) continue;
                 if ($row['kind'] === 'photo') $products[$row['product_id']]['photos'][] = ['id' => (int)$row['id'], 'filename' => $row['filename']];
-                if ($row['kind'] === 'sds') $products[$row['product_id']]['sds_id'] = (int)$row['id'];
+                if ($row['kind'] === 'sds') $products[$row['product_id']]['sds_id'] = max($products[$row['product_id']]['sds_id'] ?? 0, (int)$row['id']);
             }
             $locations = array_map(static fn(array $row): array => ['id' => (int)$row['id'], 'name' => $row['name']], $this->rows('gsk_location'));
             return new DataResponse(['products' => array_values($products), 'locations' => $locations]);
@@ -564,6 +569,8 @@ class InventoryController extends Controller {
     public function analyzeSds(): DataResponse {
         if (!$this->permitted()) return $this->denied();
         try {
+            $draftToken = null;
+            $sourceUrl = trim((string)$this->request->getParam('source_url', ''));
             $upload = $this->request->getUploadedFile('file');
             if (is_array($upload)) {
                 $path = (string)($upload['tmp_name'] ?? '');
@@ -571,6 +578,10 @@ class InventoryController extends Controller {
                 if (filesize($path) > 15 * 1024 * 1024 || (new \finfo(FILEINFO_MIME_TYPE))->file($path) !== 'application/pdf') return $this->fail('Bitte ein SDB-PDF bis 15 MB verwenden.');
                 $bytes = file_get_contents($path);
                 $filename = basename((string)$upload['name']);
+            } elseif ($sourceUrl !== '') {
+                try { $bytes = (new SdsDownloader($this->clientService, $this->remoteHosts))->download($sourceUrl); }
+                catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 502); }
+                $filename = 'SDB-' . gmdate('Y-m-d') . '.pdf';
             } else {
                 $id = filter_var($this->request->getParam('file_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 $record = $id ? $this->one('gsk_file', $id) : null;
@@ -579,17 +590,39 @@ class InventoryController extends Controller {
                 $filename = $record['filename'];
             }
             if (!is_string($bytes)) return $this->fail('SDB konnte nicht gelesen werden.');
-            try { $text = (new SdsTextExtractor())->extract($bytes); }
-            catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 503); }
-            $result = SdsAnalysis::parse($text['pages']);
+            if ($sourceUrl !== '' && !is_array($upload)) $draftToken = (new SdsDraftStore($this->appData))->stage($this->session->getUser()->getUID(), $bytes);
+            try {
+                $text = (new SdsTextExtractor())->extract($bytes);
+                $result = SdsAnalysis::parse($text['pages']);
+            } catch (\RuntimeException $e) {
+                if ($draftToken === null) return $this->fail($e->getMessage(), 503);
+                // Keep the exact downloaded PDF saveable even when server OCR tools are missing.
+                $text = ['ocr_pages' => []];
+                $result = ['status' => 'unclear', 'suggestions' => [], 'evidence' => [],
+                    'extraction_error' => $e->getMessage(),
+                    'notice' => 'PDF wurde lokal geladen, konnte aber nicht ausgewertet werden: ' . $e->getMessage() . ' Die Kopie kann mit dem Produkt gespeichert werden; Gefahrstoffangaben bitte manuell prüfen.'];
+            }
             return new DataResponse($result + ['filename' => mb_substr($filename, 0, 180), 'sha256' => hash('sha256', $bytes),
-                'ocr_pages' => $text['ocr_pages'], 'page_limit' => 4]);
+                'ocr_pages' => $text['ocr_pages'], 'page_limit' => 4, 'draft_token' => $draftToken]);
         } catch (\InvalidArgumentException $e) {
             return $this->fail($e->getMessage());
         } catch (\Throwable $e) {
             $this->logger->warning('Gefahrstoffkataster: SDB-Auswertung fehlgeschlagen.', ['type' => get_class($e)]);
             return $this->fail('SDB konnte nicht ausgewertet werden. Angaben können weiterhin manuell erfasst werden.', 503);
         }
+    }
+
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function previewSdsDraft(string $token): Response {
+        if (!$this->permitted()) return $this->denied();
+        try {
+            $bytes = (new SdsDraftStore($this->appData))->read($this->session->getUser()->getUID(), $token);
+            $response = new DataDownloadResponse($bytes, 'SDB-Vorschau.pdf', 'application/pdf');
+            $response->addHeader('Cache-Control', 'no-store');
+            $response->addHeader('X-Content-Type-Options', 'nosniff');
+            return $response;
+        } catch (\Throwable $e) { return $this->fail('SDB-Vorschau nicht mehr verfügbar. Bitte erneut laden.', 404); }
     }
 
     private function documentFolder() {
@@ -603,6 +636,16 @@ class InventoryController extends Controller {
         if (!$this->one('gsk_product', $id)) return $this->fail('Produkt nicht gefunden.', 404);
         $upload = $this->request->getUploadedFile('file');
         $kind = $this->request->getParam('kind');
+        $draftToken = (string)$this->request->getParam('draft_token', '');
+        if ($kind === 'sds' && $draftToken !== '') {
+            try {
+                $drafts = new SdsDraftStore($this->appData);
+                $bytes = $drafts->read($this->session->getUser()->getUID(), $draftToken);
+                $fileId = $this->storeSdsCopy($id, $bytes);
+                $drafts->remove($this->session->getUser()->getUID(), $draftToken);
+                return new DataResponse(['id' => $fileId], 201);
+            } catch (\Throwable $e) { return $this->fail('Lokale SDB-Kopie konnte nicht hinterlegt werden. Bitte erneut laden und speichern.', 409); }
+        }
         if (!is_array($upload) || !in_array($kind, ['photo','sds'], true) || (int)($upload['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string)($upload['tmp_name'] ?? ''))) return $this->fail('Upload fehlgeschlagen. PHP-Uploadgrenze prüfen.');
         $path = $upload['tmp_name'];
         $size = filesize($path);
@@ -625,6 +668,21 @@ class InventoryController extends Controller {
         } catch (\Throwable $e) {
             try { $folder->getFile($storageName)->delete(); } catch (\Throwable $ignored) {}
             return $this->fail('Datei konnte nicht gespeichert werden.', 500);
+        }
+    }
+
+    private function storeSdsCopy(int $productId, string $bytes): int {
+        if (strlen($bytes) > 15 * 1024 * 1024 || !str_starts_with($bytes, '%PDF-')) throw new \InvalidArgumentException('Ungültiges SDB-PDF.');
+        $storageName = bin2hex(random_bytes(16));
+        $folder = $this->documentFolder();
+        try {
+            $folder->newFile($storageName)->putContent($bytes);
+            return $this->insertRow('gsk_file', ['product_id' => $productId, 'kind' => 'sds',
+                'filename' => 'SDB-' . gmdate('Y-m-d') . '.pdf', 'mime' => 'application/pdf',
+                'storage_name' => $storageName, 'created_at' => gmdate('c')]);
+        } catch (\Throwable $e) {
+            try { $folder->getFile($storageName)->delete(); } catch (\Throwable $ignored) {}
+            throw $e;
         }
     }
 
@@ -656,7 +714,7 @@ class InventoryController extends Controller {
         $stock = [];
         foreach ($this->rows('gsk_stock') as $entry) $stock[$entry['product_id']][] = $entry;
         $files = [];
-        foreach ($this->rows('gsk_file') as $entry) if ($entry['kind'] === 'sds') $files[$entry['product_id']] = $entry['id'];
+        foreach ($this->rows('gsk_file') as $entry) if ($entry['kind'] === 'sds') $files[$entry['product_id']] = max($files[$entry['product_id']] ?? 0, (int)$entry['id']);
         $result = [self::HEADERS];
         foreach ($this->rows('gsk_product') as $entry) {
             $p = json_decode($entry['details'], true);

@@ -10,6 +10,7 @@ return ['routes' => [
     ['name' => 'inventory#researchProduct', 'url' => '/api/research', 'verb' => 'POST'],
     ['name' => 'inventory#readLabel', 'url' => '/api/label', 'verb' => 'POST'],
     ['name' => 'inventory#analyzeSds', 'url' => '/api/sds-analysis', 'verb' => 'POST'],
+    ['name' => 'inventory#previewSdsDraft', 'url' => '/api/sds-preview/{token}', 'verb' => 'GET'],
     ['name' => 'inventory#addLocation', 'url' => '/api/locations', 'verb' => 'POST'],
     ['name' => 'inventory#saveProduct', 'url' => '/api/products', 'verb' => 'POST'],
     ['name' => 'inventory#updateProduct', 'url' => '/api/products/{id}', 'verb' => 'POST'],

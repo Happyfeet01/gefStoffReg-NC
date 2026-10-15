@@ -7,7 +7,6 @@ return ['routes' => [
     ['name' => 'inventory#bootstrap', 'url' => '/api/bootstrap', 'verb' => 'GET'],
     ['name' => 'inventory#lookup', 'url' => '/api/lookup/{ean}', 'verb' => 'GET'],
     ['name' => 'inventory#previewSource', 'url' => '/api/source-preview', 'verb' => 'POST'],
-    ['name' => 'inventory#searchName', 'url' => '/api/search', 'verb' => 'POST'],
     ['name' => 'inventory#researchProduct', 'url' => '/api/research', 'verb' => 'POST'],
     ['name' => 'inventory#readLabel', 'url' => '/api/label', 'verb' => 'POST'],
     ['name' => 'inventory#addLocation', 'url' => '/api/locations', 'verb' => 'POST'],

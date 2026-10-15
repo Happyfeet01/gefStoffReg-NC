@@ -81,7 +81,7 @@ async function lookupEan(){
   const ean=$('product-form').elements.ean.value.trim();
   if(!/^[0-9]{8,14}$/.test(ean)){lookupMessage('Bitte zuerst eine EAN/GTIN mit 8 bis 14 Ziffern scannen oder eingeben.');return}
   const button=$('lookup-button');button.disabled=true;
-  lookupMessage('Suche zuerst im Bestand, danach in Open Products Facts …');
+  lookupMessage('Suche im eigenen Bestand …');
   try{
     const response=await fetch(url('/api/lookup/'+encodeURIComponent(ean)));
     const data=await response.json();if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);
@@ -90,15 +90,8 @@ async function lookupEan(){
       const box=lookupMessage('Dieses Produkt ist bereits im eigenen Bestand: '+data.name+'.');
       const existing=state.products.find(p=>p.id===data.id);
       if(existing)box.append(buttonElement('Vorhandenes Produkt öffnen',()=>{close('product-dialog');openProduct(existing)}));
-    }else if(data.match==='external'){
-      const box=lookupMessage('Vorschlag von Open Products Facts: '+[data.name,data.manufacturer].filter(Boolean).join(' · ')+'. Bitte mit dem Etikett abgleichen.');
-      if(data.name||data.manufacturer)box.append(buttonElement('Vorschlag übernehmen',()=>{
-        const f=$('product-form');if(data.name)f.elements.name.value=data.name;if(data.manufacturer)f.elements.manufacturer.value=data.manufacturer;
-        lookupMessage('Name und Marke übernommen. Hersteller, Produktvariante und alle Gefahrstoffangaben selbst prüfen.');
-      }));
-      const link=el('a','', 'Quelle ansehen ↗');link.href=data.source_url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
     }else{
-      const box=lookupMessage('In Open Products Facts kein Treffer. Diese Datenbank enthält viele Spezialprodukte nicht.');
+      const box=lookupMessage('Dieses Produkt ist noch nicht im eigenen Bestand.');
       const link=el('a','', 'EAN im Web suchen ↗');link.href='https://suche.dasnetzundich.de/search?q='+encodeURIComponent('"'+ean+'" Produkt Hersteller');link.target='_blank';link.rel='noopener noreferrer';box.append(link);
     }
   }catch(err){
@@ -155,24 +148,6 @@ function labelSuggestions(lines){
   return {scored,manufacturer,name:name.replace(/[®™]/g,'').trim(),pack:pack?{size:pack[1].replace(',','.'),unit:pack[2].toLowerCase()}:null};
 }
 $('lookup-button').addEventListener('click',lookupEan);
-async function searchName(){
-  const query=$('product-form').elements.name.value.trim();
-  if(query.length<3){lookupMessage('Bitte erst einen Produktnamen eingeben oder eine erkannte Etikettzeile auswählen.');return}
-  const action=$('name-search-button');action.disabled=true;lookupMessage('Suche nach Produktvorschlägen …');
-  try{
-    const result=await request('/api/search',{query});
-    const box=lookupMessage(result.matches.length?'Mögliche Treffer in Open Products Facts. Bitte genaue Variante und EAN mit dem Etikett abgleichen.':'Keine passenden Produktvorschläge gefunden. Angaben bitte selbst eintragen.');
-    for(const match of result.matches){
-      box.append(buttonElement([match.name||'Ohne Name',match.manufacturer,match.ean].filter(Boolean).join(' · '),()=>{
-        const f=$('product-form');if(match.name)f.elements.name.value=match.name;
-        if(match.manufacturer)f.elements.manufacturer.value=match.manufacturer;
-        f.elements.ean.value=match.ean;
-        lookupMessage('Vorschlag übernommen. EAN und Produktvariante prüfen; Gefahrstoffangaben nur aus passendem SDB übernehmen.');
-      }));
-    }
-  }catch(err){lookupMessage(err.message)}finally{action.disabled=false}
-}
-$('name-search-button').addEventListener('click',searchName);
 async function researchProduct(){
   const f=$('product-form'),query=f.elements.name.value.trim(),manufacturer=f.elements.manufacturer.value.trim();
   if(query.length<4){lookupMessage('Bitte zuerst den Produktnamen eingeben, zum Beispiel „Hartmann Bacillol Desinfektionstücher“.');return}

@@ -231,26 +231,7 @@ class InventoryController extends Controller {
                 return new DataResponse(['match' => 'local', 'id' => (int)$row['id'], 'name' => $product['name'] ?? '']);
             }
         }
-        try {
-            $response = $this->clientService->newClient()->get('https://world.openproductsfacts.org/api/v2/product/' . $ean . '?fields=code,product_name,product_name_de,brands', [
-                'timeout' => 6,
-                'headers' => ['User-Agent' => 'Gefahrstoffkataster/0.1.5 (https://github.com/Happyfeet01/gefStoffReg-NC)'],
-            ]);
-            $data = json_decode($response->getBody(), true, 16, JSON_THROW_ON_ERROR);
-            if (empty($data['status']) || !is_array($data['product'] ?? null)) return new DataResponse(['match' => 'none']);
-            $product = $data['product'];
-            $name = trim((string)(($product['product_name_de'] ?? '') ?: ($product['product_name'] ?? '')));
-            $brand = trim((string)($product['brands'] ?? ''));
-            return new DataResponse(['match' => 'external', 'name' => mb_substr($name, 0, 160),
-                'manufacturer' => mb_substr($brand, 0, 120), 'source' => 'Open Products Facts',
-                'source_url' => 'https://world.openproductsfacts.org/product/' . $ean]);
-        } catch (\Throwable $e) {
-            if (method_exists($e, 'getResponse') && $e->getResponse()?->getStatusCode() === 404) {
-                return new DataResponse(['match' => 'none']);
-            }
-            $this->logger->warning('Gefahrstoffkataster: EAN-Suche nicht verfügbar.', ['exception' => $e]);
-            return $this->fail('Externe Produktsuche gerade nicht erreichbar. EAN bleibt eingetragen.', 503);
-        }
+        return new DataResponse(['match' => 'none']);
     }
 
     #[NoAdminRequired]
@@ -305,33 +286,6 @@ class InventoryController extends Controller {
         } catch (\Throwable $e) {
             $this->logger->warning('Gefahrstoffkataster: Herstellerseite konnte nicht eingelesen werden.', ['exception' => $e]);
             return $this->fail('Herstellerseite gerade nicht verfügbar. Angaben können weiterhin von Hand erfasst werden.', 503);
-        }
-    }
-
-    #[NoAdminRequired]
-    public function searchName(): DataResponse {
-        if (!$this->permitted()) return $this->denied();
-        try {
-            $query = trim((string)($this->payload()['query'] ?? ''));
-            if (mb_strlen($query) < 3 || mb_strlen($query) > 100) return $this->fail('Suchbegriff muss 3 bis 100 Zeichen lang sein.');
-            $response = $this->clientService->newClient()->get('https://world.openproductsfacts.org/cgi/search.pl?' . http_build_query([
-                'search_terms' => $query, 'search_simple' => '1', 'action' => 'process',
-                'json' => '1', 'page_size' => '5', 'fields' => 'code,product_name,product_name_de,brands',
-            ]), ['timeout' => 7, 'headers' => ['User-Agent' => 'Gefahrstoffkataster/0.1.5 (https://github.com/Happyfeet01/gefStoffReg-NC)']]);
-            $data = json_decode($response->getBody(), true, 16, JSON_THROW_ON_ERROR);
-            $matches = [];
-            foreach (($data['products'] ?? []) as $product) {
-                if (!is_array($product) || !preg_match('/^[0-9]{8,14}$/D', (string)($product['code'] ?? ''))) continue;
-                $matches[] = [
-                    'ean' => (string)$product['code'],
-                    'name' => mb_substr(trim((string)(($product['product_name_de'] ?? '') ?: ($product['product_name'] ?? ''))), 0, 160),
-                    'manufacturer' => mb_substr(trim((string)($product['brands'] ?? '')), 0, 120),
-                ];
-            }
-            return new DataResponse(['matches' => $matches]);
-        } catch (\Throwable $e) {
-            $this->logger->warning('Gefahrstoffkataster: Namenssuche nicht verfügbar.', ['exception' => $e]);
-            return $this->fail('Externe Produktsuche gerade nicht erreichbar.', 503);
         }
     }
 

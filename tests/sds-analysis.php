@@ -24,4 +24,15 @@ checkSds(SdsAnalysis::parse(["ABSCHNITT 2: Mögliche Gefahren\n2.3 Sonstige Gefa
 checkSds(!isset(values(SdsAnalysis::parse([$negative . "\nSignalwort: Gefahr\nSignalwort: Achtung"]))['signal']), 'Conflicting signal proposed');
 checkSds(values(SdsAnalysis::parse(["2 Mögliche Gefahren\n2.2 Kennzeichnung\nH300+H310+H330 Lebensgefahr."]))['h_statements'] === 'H300+H310+H330 Lebensgefahr.', 'Combined code lost');
 checkSds(!isset(values(SdsAnalysis::parse(["2 Mögliche Gefahren\n2.2 Kennzeichnung\nH314 " . str_repeat('x', 1600)]))['h_statements']), 'Oversized value truncated');
-echo "15 SDB parser regression cases passed\n";
+$decorated = SdsAnalysis::parse(["* ABSCHNITT 2: Mögliche Gefahren\n· 2.1 Einstufung des Stoffs oder Gemischs\nMet. Corr.1 H290\nSkin Corr. 1B H314\n· 2.2 Kennzeichnungselemente\n· Signalwort Gefahr\nGHS05\n· Gefahrenhinweise H290 Kann gegenüber Metallen korrosiv sein.\nH314 Verursacht schwere Verätzungen.\n* ABSCHNITT 3: Zusammensetzung\nAcute Tox. 4 H302\nH302 Nur Bestandteil"]);
+checkSds($decorated['status'] === 'classified', 'Decorated heading missed');
+checkSds(values($decorated)['signal'] === 'Gefahr', 'Bulleted signal word missed');
+checkSds(!str_contains(values($decorated)['h_statements'], 'H302'), 'Decorated section 3 leaked');
+checkSds(!str_contains(values($decorated)['classification'], 'Acute Tox'), 'Ingredient class leaked');
+$negativeClp = SdsAnalysis::parse(["ABSCHNITT 2: Mögliche Gefahren\n· 2.1 Einstufung\n1272/2008 Der Stoff ist gemäß CLP-Verordnung nicht eingestuft.\n· 2.2 Kennzeichnung\n· Signalwort entfällt\nABSCHNITT 3: Zusammensetzung"]);
+checkSds($negativeClp['status'] === 'not_classified', 'CLP negative with bullets missed');
+checkSds(values($negativeClp) === [], 'Negative statement created hazard fields');
+checkSds(str_contains(SdsAnalysis::parse(['Betriebsanweisung gem. §14 GefStoffV'])['notice'], 'Betriebsanweisung erkannt'), 'Document type notice missing');
+checkSds(str_contains(SdsAnalysis::parse(['Produktinformation ohne SDB-Abschnitt'])['notice'], 'Produktmerkblatt'), 'Non-SDS notice missing');
+checkSds(!str_contains(values(SdsAnalysis::parse(["* ABSCHNITT 2: Mögliche Gefahren\n· 2.2 Kennzeichnung\nH314 Produkt\n* ABSCHNITT 4: Erste Hilfe\nH302 Nicht übernehmen"]))['h_statements'], 'H302'), 'Unexpected section end ignored');
+echo "24 SDB parser regression cases passed\n";

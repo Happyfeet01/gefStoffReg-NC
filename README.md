@@ -55,6 +55,18 @@ Suchfehler lösen keinen KI-Aufruf aus. Bei fehlendem Schlüssel oder erschöpft
 
 ## Funktionen und Grenzen
 
+### SDB nachträglich auswerten (0.1.21)
+
+In der Produktbearbeitung steht am SDB-PDF-Feld „SDB auswerten“ zur Verfügung, auch für vorhandene Produkte. Ein neu ausgewähltes PDF hat Vorrang vor einem bereits gespeicherten SDB. Die Auswertung speichert weder das PDF noch Produktänderungen; zum dauerhaften Übernehmen anschließend das Produkt speichern. Externe SDB-Links werden nicht automatisch abgerufen: PDF herunterladen, prüfen und auswählen.
+
+Die ersten vier PDF-Seiten werden lokal mit `pdftotext` gelesen; Seiten mit weniger als 100 Textzeichen werden zusätzlich über `pdftoppm` und Tesseract erkannt. Servervoraussetzungen: `poppler-utils`, `tesseract-ocr`, `tesseract-ocr-deu`, `tesseract-ocr-eng`, `/usr/bin/timeout` und PHP `proc_open` (Debian: `apt install poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng`). Maximal 15 MB pro PDF, zwölf Sekunden je Werkzeugaufruf; temporäre Dateien werden nach der Anfrage entfernt. Keine Übertragung an KI-Anbieter und kein API-Schlüssel nötig.
+
+Vorschläge stammen ausschließlich aus dem erkannten Abschnitt 2: ausdrücklich geschriebene Gefahrenklassen/Kategorien, Signalwort, GHS-Codes und H-/EUH-Zeilen. GHS-Piktogramme als Bild werden nicht interpretiert. OCR kann Zeichen verwechseln; umgebrochene Sätze und ungewöhnliche Layouts müssen im Original ergänzt werden. Zu jedem Vorschlag erscheinen Seitenzahl, Textfundstelle und bisheriger Formularwert. Erst nach Bestätigung von Produkt, Hersteller und SDB-Version können einzelne Felder übernommen werden. Ein positiver Einstufungshinweis kann nach Bestätigung die vorhandene Gefahrstoff-Markierung setzen; negative oder unklare Ergebnisse entfernen sie niemals. Fehlende Erkennung ist keine Entwarnung. „Nicht als gefährlich eingestuft“ bedeutet nicht automatisch „kein Gefahrstoff“.
+
+Ein bestätigtes Ergebnis kann als Prüfvermerk mit Status, Dateiname, PDF-Prüfsumme und Zeitpunkt am Produkt gespeichert werden. Die Übersicht zeigt insbesondere „SDB: Prüfung erforderlich“ dauerhaft an. Der Vermerk dokumentiert die bestätigte Auswertung, keine behördliche oder fachliche Freigabe. Bei Auswahl eines anderen PDFs wird der bisherige Vermerk im Formular verworfen.
+
+Prüfungen: `php tests/sds-analysis.php`, `php tests/sds-product.php`, `php tests/research-response.php`, `node tests/sds-ui.js`, `node --check js/app.js` und PHP-Syntaxprüfung aller PHP-Dateien. Mit synthetischem Text-PDF und Bild-PDF lässt sich zusätzlich `php tests/sds-extraction.php text.pdf scan.pdf` ausführen. Die Hauptvorlage `templates/main.php` sowie der Scanner-Build fehlen bereits im zugrunde liegenden Repository-Stand; die neue Oberfläche wird am bestehenden SDB-Feld ergänzt. Vollständiger Oberflächen- und Berechtigungstest erfordert eine lauffähige Nextcloud-Installation mit dieser Vorlage.
+
 0.1.14 korrigiert die Schreibzugriffe auf die Datenbank: Einfügen und Produktänderungen laufen über Nextclouds öffentlichen QueryBuilder. Damit funktionieren auch die Initialisierung und das Anlegen von Lagerorten auf Nextcloud 35. Bereits vorhandene Lagerorte werden beim erneuten Eingeben erkannt; technische Fehler werden getrennt gemeldet und im Nextcloud-Protokoll dokumentiert.
 
 Seit 0.1.13 nutzt die Desktopübersicht bis zu 1680 Pixel Breite mit größerer Schrift. Die Produktmaske öffnet ab 900 Pixel Bildschirmbreite nahezu bildschirmfüllend, mit zwei Spalten für Formularabschnitte und einer dauerhaft sichtbaren Speicherleiste. Auf dem Smartphone bleibt die kompakte Formularansicht erhalten.

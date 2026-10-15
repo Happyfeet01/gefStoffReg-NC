@@ -49,6 +49,7 @@ function render(){
     const total=p.stock.reduce((a,s)=>a+s.packs,0);const quantity=el('div','card-stock');quantity.append(el('strong','',`${format(total*p.pack_size)} ${p.unit}`),el('small','',`${format(total)} × ${format(p.pack_size)} ${p.unit}`));card.append(quantity);
     const places=el('div','card-locations');for(const s of p.stock.filter(s=>s.packs>0)){const place=state.locations.find(l=>l.id===s.location_id);places.append(el('span','place',`${place?.name||'?'}: ${format(s.packs)} Gebinde`))}if(!places.childElementCount)places.append(el('span','', 'Noch kein Bestand'));card.append(places);
     const actions=el('div','actions');actions.append(button('Bestand ändern',()=>openStock(p)),button('Bearbeiten',()=>openProduct(p)));
+    if(p.sds_review)card.append(el('span','badge'+(p.sds_review.status==='unclear'?' warn':''),sdsReviewLabel(p.sds_review.status)));
     if(p.sds_id){const link=el('a','', 'SDB herunterladen ↗');link.href=url(`/api/files/${p.sds_id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
     if(p.source_url){const link=el('a','', 'Herstellerseite ↗');link.href=p.source_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
     if(p.sds_url){const link=el('a','', 'SDB beim Hersteller ↗');link.href=p.sds_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
@@ -72,6 +73,7 @@ function openProduct(p=null){
   const links=$('current-files');links.replaceChildren();
   if(p?.sds_id){const a=el('a','', 'Vorhandenes SDB ↗');a.href=url(`/api/files/${p.sds_id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
+  setupSdsAnalysis();
   show('product-dialog');
 }
 function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;box.scrollIntoView({block:'nearest',behavior:'smooth'});return box}
@@ -100,6 +102,79 @@ async function lookupEan(){
   }finally{button.disabled=false}
 }
 function buttonElement(label,action){const b=button(label,action);b.className='secondary';return b}
+let sdsAnalysisGeneration=0;
+function sdsReviewLabel(status){return {classified:'SDB: gefährlich eingestuft',not_classified:'SDB: nicht als gefährlich eingestuft',unclear:'SDB: Prüfung erforderlich'}[status]||'SDB: Prüfung erforderlich'}
+function setupSdsAnalysis(){
+  sdsAnalysisGeneration++;
+  let area=$('sds-analysis');
+  if(!area){
+    area=el('div','full sds-analysis');area.id='sds-analysis';
+    const anchor=$('sds-file').closest('label')||$('sds-file');anchor.after(area);
+  }
+  area.replaceChildren();
+  const form=$('product-form');form.sdsReview=state.current?.sds_review||null;
+  form.sdsReviewIdentity=[form.elements.name.value,form.elements.manufacturer.value];
+  if(form.sdsReview)area.append(el('p','hint',`${sdsReviewLabel(form.sdsReview.status)} · ${form.sdsReview.filename} · Prüfvermerk vom ${form.sdsReview.reviewed_at.slice(0,10)}. Bei geändertem SDB erneut auswerten.`));
+  const result=el('div','lookup-result');result.hidden=true;result.setAttribute('aria-live','polite');
+  const action=buttonElement('SDB auswerten',async()=>{
+    const file=$('sds-file').files?.[0],savedId=state.current?.sds_id;
+    result.hidden=false;result.replaceChildren();
+    if(!file&&!savedId){result.append(el('p','','Bitte zuerst ein SDB-PDF auswählen oder ein vorhandenes SDB hinterlegen.'));return}
+    if(file&&file.size>15*1024*1024){result.append(el('p','','Das SDB darf maximal 15 MB groß sein.'));return}
+    const generation=++sdsAnalysisGeneration;
+    const form=$('product-form'),identity=[form.elements.name.value,form.elements.manufacturer.value];
+    const data=new FormData();if(file)data.set('file',file,file.name);else data.set('file_id',String(savedId));
+    action.disabled=true;result.append(el('p','','SDB wird auf deinem Nextcloud-Server gelesen. OCR kann etwas dauern …'));
+    let previewUrl;
+    try{
+      const response=await fetch(url('/api/sds-analysis'),{method:'POST',headers:{requesttoken:OC.requestToken},body:data});
+      const analysis=await response.json();if(!response.ok)throw Error(analysis.error||`HTTP ${response.status}`);
+      if(generation!==sdsAnalysisGeneration)return;
+      result.replaceChildren();
+      const statuses={classified:'Als gefährlich eingestuft laut erkanntem SDB-Text',not_classified:'Hinweis: laut SDB nicht als gefährlich eingestuft',unclear:'Keine eindeutige Aussage – Prüfung erforderlich'};
+      result.append(el('strong','',statuses[analysis.status]||statuses.unclear));
+      result.append(el('p','',analysis.notice));
+      result.append(el('p','',`${analysis.filename} · geprüft werden nur die ersten ${analysis.page_limit} Seiten${analysis.ocr_pages.length?' · OCR auf Seite '+analysis.ocr_pages.join(', '):''}.`));
+      const original=el('a','','Original-SDB öffnen ↗');
+      if(file){previewUrl=URL.createObjectURL(file);original.href=previewUrl}else original.href=url(`/api/files/${savedId}`);
+      original.target='_blank';original.rel='noopener noreferrer';result.append(original);
+      const confirmed=el('label','checkbox'),confirmation=el('input');confirmation.type='checkbox';
+      confirmed.append(confirmation,document.createTextNode(' Produkt, Hersteller und SDB-Version im Original geprüft'));result.append(confirmed);
+      const recordReview=()=>{
+        if(!confirmation.checked){notice('Bitte zuerst Produkt, Hersteller und SDB-Version bestätigen.',true);return false}
+        if(generation!==sdsAnalysisGeneration||identity[0]!==form.elements.name.value||identity[1]!==form.elements.manufacturer.value){notice('Produkt oder SDB geändert. Bitte erneut auswerten.',true);return false}
+        form.sdsReview={status:analysis.status,filename:analysis.filename,sha256:analysis.sha256,reviewed_at:new Date().toISOString()};form.sdsReviewIdentity=identity;return true;
+      };
+      result.append(buttonElement('Ergebnis als Prüfvermerk übernehmen',()=>{if(recordReview())notice('Prüfvermerk übernommen. Bitte Produkt speichern.')}));
+      const labels={classification:'Einstufung',signal:'Signalwort',ghs:'GHS-Codes',h_statements:'H-/EUH-Sätze'};
+      for(const suggestion of analysis.suggestions){
+        if(!labels[suggestion.field])continue;
+        const card=el('div','research-match');card.append(el('strong','',labels[suggestion.field]));
+        card.append(el('span','',`Bisher: ${form.elements[suggestion.field].value||'–'}`));
+        card.append(el('span','',`Vorschlag: ${suggestion.value}`));
+        for(const evidence of suggestion.evidence)card.append(el('small','',`Seite ${evidence.page}: ${evidence.text}`));
+        card.append(buttonElement('Geprüften Vorschlag übernehmen',()=>{
+          if(!recordReview())return;
+          form.elements[suggestion.field].value=suggestion.value;
+          notice('Vorschlag ins Formular übernommen. Zum dauerhaften Übernehmen Produkt speichern.');
+        }));result.append(card);
+      }
+      if(analysis.status==='classified')result.append(buttonElement('Nach Prüfung als Gefahrstoff markieren',()=>{
+        if(!recordReview())return;
+        form.elements.hazardous.checked=true;notice('Gefahrstoff im Formular markiert. Bitte Produkt speichern.');
+      }));
+      const evidence=el('details');evidence.append(el('summary','','Erkannter Abschnitt 2 mit Seitenangaben'));
+      for(const line of analysis.evidence)evidence.append(el('p','',`Seite ${line.page}: ${line.text}`));
+      if(!analysis.evidence.length)evidence.append(el('p','','Abschnitt 2 wurde nicht erkannt. Keine automatische Entwarnung möglich.'));
+      result.append(evidence);
+      // Revoke the local preview when a new analysis/form replaces this result.
+      if(previewUrl){const objectUrl=previewUrl;const observer=new MutationObserver(()=>{if(!original.isConnected){URL.revokeObjectURL(objectUrl);observer.disconnect()}});observer.observe(area,{childList:true,subtree:true})}
+    }catch(err){if(generation===sdsAnalysisGeneration)result.replaceChildren(el('p','',err.message))}
+    finally{action.disabled=false}
+  });
+  area.append(action,el('p','hint','Ausgewähltes PDF hat Vorrang vor dem gespeicherten SDB. Vorschläge ersetzen Angaben erst nach Bestätigung; gespeichert wird mit „Produkt speichern“.'),result);
+  $('sds-file').onchange=()=>{sdsAnalysisGeneration++;form.sdsReview=null;result.hidden=true;result.replaceChildren()};
+}
 function normalText(value){return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('de').replace(/[^a-z0-9]+/g,' ').trim()}
 async function preparedLabelPhoto(file){
   if(!/^image\/(jpeg|png|webp)$/.test(file.type))return file;
@@ -297,6 +372,10 @@ $('product-form').addEventListener('submit',async event=>{
     const keys=['name','manufacturer','article','ean','ufi','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url'];
     const body=Object.fromEntries(keys.map(k=>[k,f.elements[k].value.trim()]));
     Object.assign(body,{pack_size:Number(f.elements.pack_size.value),hazardous:f.elements.hazardous.checked});
+    const review=f.sdsReviewIdentity?.[0]===f.elements.name.value&&f.sdsReviewIdentity?.[1]===f.elements.manufacturer.value?f.sdsReview:null;
+    const newSds=$('sds-file').files[0];
+    // A review of a new PDF becomes durable only after its upload succeeds.
+    body.sds_review=newSds?null:review;
     const isNew=!state.current;
     const result=await request(isNew?'/api/products':`/api/products/${state.current.id}`,body);
     close('product-dialog');
@@ -307,7 +386,10 @@ $('product-form').addEventListener('submit',async event=>{
     try{
       for(const file of $('photo-gallery').files)await upload(result.id,file,'photo');
       for(const file of $('photo-camera').files)await upload(result.id,file,'photo');
-      if($('sds-file').files[0])await upload(result.id,$('sds-file').files[0],'sds');
+      if(newSds){
+        await upload(result.id,newSds,'sds');
+        if(review)await request(`/api/products/${result.id}`,{...body,sds_review:review});
+      }
     }catch(err){await load();notice('Produkt gespeichert, aber mindestens ein Upload ist fehlgeschlagen: '+err.message,true);return}
     await load();notice('Produkt und Dateien gespeichert.');
   }catch(err){notice(err.message,true)}

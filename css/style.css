@@ -9,6 +9,9 @@
 #gsk-app #scan-controls button[hidden]{display:none}
 #gsk-app #scan-dialog .scan-actions{flex-wrap:wrap}
 #gsk-app #scan-dialog .scan-actions button{white-space:normal}
+#gsk-app .sds-analysis{margin-top:12px;min-width:0}
+#gsk-app .sds-analysis .checkbox{display:flex;align-items:center;gap:8px;width:100%}
+#gsk-app .sds-analysis .lookup-result{margin-top:10px}
 #gsk-app .lookup-tools{display:flex;gap:8px;flex-wrap:wrap}
 #gsk-app .lookup-tools button{white-space:normal}
 #gsk-app .lookup-result{background:#eef7f7;border:1px solid #c9e2e3;border-radius:10px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;line-height:1.4}

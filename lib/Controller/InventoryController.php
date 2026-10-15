@@ -5,6 +5,8 @@ namespace OCA\Gefahrstoffkataster\Controller;
 
 use OCA\Gefahrstoffkataster\Service\ApiKeyService;
 use OCA\Gefahrstoffkataster\Service\ResearchResponse;
+use OCA\Gefahrstoffkataster\Service\SdsAnalysis;
+use OCA\Gefahrstoffkataster\Service\SdsTextExtractor;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -164,6 +166,16 @@ class InventoryController extends Controller {
                 throw new \InvalidArgumentException('Datum ungültig.');
             }
             $data[$field] = $value;
+        }
+        $review = $input['sds_review'] ?? null;
+        if ($review !== null) {
+            if (!is_array($review) || !in_array($review['status'] ?? null, ['classified','not_classified','unclear'], true)
+                || !is_string($review['sha256'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $review['sha256'])
+                || !is_string($review['filename'] ?? null) || mb_strlen($review['filename']) > 180
+                || !is_string($review['reviewed_at'] ?? null) || !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/D', $review['reviewed_at'])) {
+                throw new \InvalidArgumentException('SDB-Prüfvermerk ungültig.');
+            }
+            $data['sds_review'] = array_intersect_key($review, array_flip(['status','sha256','filename','reviewed_at']));
         }
         return $data;
     }
@@ -545,6 +557,38 @@ class InventoryController extends Controller {
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             return $this->fail($e instanceof \InvalidArgumentException ? $e->getMessage() : 'Bestand gleichzeitig geändert oder Buchung fehlgeschlagen. Bitte neu laden.', $e instanceof \InvalidArgumentException ? 400 : 409);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function analyzeSds(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        try {
+            $upload = $this->request->getUploadedFile('file');
+            if (is_array($upload)) {
+                $path = (string)($upload['tmp_name'] ?? '');
+                if ((int)($upload['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file($path)) return $this->fail('SDB-Upload fehlgeschlagen.');
+                if (filesize($path) > 15 * 1024 * 1024 || (new \finfo(FILEINFO_MIME_TYPE))->file($path) !== 'application/pdf') return $this->fail('Bitte ein SDB-PDF bis 15 MB verwenden.');
+                $bytes = file_get_contents($path);
+                $filename = basename((string)$upload['name']);
+            } else {
+                $id = filter_var($this->request->getParam('file_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                $record = $id ? $this->one('gsk_file', $id) : null;
+                if (!$record || $record['kind'] !== 'sds' || !$this->one('gsk_product', (int)$record['product_id'])) return $this->fail('SDB nicht gefunden.', 404);
+                $bytes = $this->documentFolder()->getFile($record['storage_name'])->getContent();
+                $filename = $record['filename'];
+            }
+            if (!is_string($bytes)) return $this->fail('SDB konnte nicht gelesen werden.');
+            try { $text = (new SdsTextExtractor())->extract($bytes); }
+            catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 503); }
+            $result = SdsAnalysis::parse($text['pages']);
+            return new DataResponse($result + ['filename' => mb_substr($filename, 0, 180), 'sha256' => hash('sha256', $bytes),
+                'ocr_pages' => $text['ocr_pages'], 'page_limit' => 4]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logger->warning('Gefahrstoffkataster: SDB-Auswertung fehlgeschlagen.', ['type' => get_class($e)]);
+            return $this->fail('SDB konnte nicht ausgewertet werden. Angaben können weiterhin manuell erfasst werden.', 503);
         }
     }
 

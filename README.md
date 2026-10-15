@@ -65,6 +65,21 @@ Fehlen auf dem Server Werkzeuge zur PDF-/Texterkennung, kann eine bereits vom Li
 
 Die ersten vier PDF-Seiten werden lokal mit `pdftotext` gelesen; Seiten mit weniger als 100 Textzeichen werden zusätzlich über `pdftoppm` und Tesseract erkannt. Servervoraussetzungen: `poppler-utils`, `tesseract-ocr`, `tesseract-ocr-deu`, `tesseract-ocr-eng`, `/usr/bin/timeout` und PHP `proc_open` (Debian: `apt install poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng`). Maximal 15 MB pro PDF, zwölf Sekunden je Werkzeugaufruf; temporäre Dateien werden nach der Anfrage entfernt. Keine Übertragung an KI-Anbieter und kein API-Schlüssel nötig.
 
+**PDF-Auswertung auf dem Server prüfen (0.1.24):** Download und Texterkennung sind getrennte Schritte. Fehlende PDF-Werkzeuge, fehlende Tesseract-Sprachdaten, Zeitlimits und geschützte PDFs erhalten nun getrennte Fehlermeldungen. Die App sucht Programme in `/usr/bin`, `/usr/local/bin`, `/bin` und dem PHP-Prozesspfad; ein eingeschränkter PHP-PATH verdeckt installierte Standardprogramme damit nicht mehr. Werkzeugfehler werden intern nur zur Einordnung gelesen; PDF-Inhalte und rohe Fehlerausgaben werden nicht an Browser oder Log übermittelt.
+
+Auf dem **Nextcloud-Host**, nicht auf dem Arbeitsplatz-PC, bei Debian/Ubuntu installieren:
+
+```sh
+sudo apt-get update
+sudo apt-get install poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng coreutils
+sudo -u www-data /usr/bin/pdftotext -v
+sudo -u www-data /usr/bin/pdftoppm -v
+sudo -u www-data /usr/bin/tesseract --list-langs
+sudo -u www-data /usr/bin/timeout --version
+```
+
+`tesseract --list-langs` muss mindestens `deu` und `eng` enthalten. Falls PHP unter einem anderen Konto läuft, dieses statt `www-data` verwenden. Bei containerisierter Nextcloud müssen die Werkzeuge im PHP-/Nextcloud-Container vorhanden sein; eine Installation nur auf dem Docker-Host genügt nicht. Danach erneut „SDB auswerten“ wählen. Eine bereits geladene Kopie und der Herstellerlink bleiben erhalten. Diagnoseprüfungen: `php tests/sds-tool-diagnostics.php` und der PDF-Extraktionstest mit Text-/Scan-Testdateien.
+
 Vorschläge stammen ausschließlich aus dem erkannten Abschnitt 2: ausdrücklich geschriebene Gefahrenklassen/Kategorien, Signalwort, GHS-Codes und H-/EUH-Zeilen. GHS-Piktogramme als Bild werden nicht interpretiert. OCR kann Zeichen verwechseln; umgebrochene Sätze und ungewöhnliche Layouts müssen im Original ergänzt werden. Zu jedem Vorschlag erscheinen Seitenzahl, Textfundstelle und bisheriger Formularwert. Erst nach Bestätigung von Produkt, Hersteller und SDB-Version können einzelne Felder übernommen werden. Ein positiver Einstufungshinweis kann nach Bestätigung die vorhandene Gefahrstoff-Markierung setzen; negative oder unklare Ergebnisse entfernen sie niemals. Fehlende Erkennung ist keine Entwarnung. „Nicht als gefährlich eingestuft“ bedeutet nicht automatisch „kein Gefahrstoff“.
 
 Ein bestätigtes Ergebnis kann als Prüfvermerk mit Status, Dateiname, PDF-Prüfsumme und Zeitpunkt am Produkt gespeichert werden. Die Übersicht zeigt insbesondere „SDB: Prüfung erforderlich“ dauerhaft an. Der Vermerk dokumentiert die bestätigte Auswertung, keine behördliche oder fachliche Freigabe. Bei Auswahl eines anderen PDFs wird der bisherige Vermerk im Formular verworfen.

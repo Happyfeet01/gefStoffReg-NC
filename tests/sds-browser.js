@@ -24,10 +24,14 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
         const url=new URL(route.request().url()),pathname=url.pathname;
         const fulfill=(body,contentType='application/json',status=200,headers={})=>route.fulfill({status,contentType,body:typeof body==='string'?body:JSON.stringify(body),headers});
         if(pathname==='/')return fulfill(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/app.css"><script src="/oc.js" defer></script><script src="/app.js" defer></script></head><body><header id="nc-header">◉ Nextcloud <span>Gefahrstoffe</span></header><div id="content">${template}</div></body></html>`,'text/html',200,{'Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob:; media-src 'self' blob:; base-uri 'none'; form-action 'self'"});
-        if(pathname==='/theme.css')return fulfill(`:root{--color-primary-element:#6554c0;--color-primary-element-text:#fff;--color-main-text:#24292f;--color-main-background:#fff;--color-text-maxcontrast:#616975;--color-border:#dfe3e8;--color-background-hover:#f6f7f9}*{box-sizing:border-box}body{margin:0;background:#e8eaf1;font:15px system-ui}#nc-header{height:56px;background:#302b69;color:white;padding:16px 24px;font-weight:600}#nc-header span{margin-left:28px;font-weight:400}#content{height:calc(100dvh - 72px);margin:0 12px 16px;border-radius:12px;overflow:hidden}input,select{height:34px;max-height:34px;padding:4px}button{height:32px}dialog:not([open]){display:none}`,'text/css');
+        // Host styles can override the browser's default hiding of closed dialogs.
+        if(pathname==='/theme.css')return fulfill(`:root{--color-primary-element:#6554c0;--color-primary-element-text:#fff;--color-main-text:#24292f;--color-main-background:#fff;--color-text-maxcontrast:#616975;--color-border:#dfe3e8;--color-background-hover:#f6f7f9}*{box-sizing:border-box}body{margin:0;background:#e8eaf1;font:15px system-ui}#nc-header{height:56px;background:#302b69;color:white;padding:16px 24px;font-weight:600}#nc-header span{margin-left:28px;font-weight:400}#content{height:calc(100dvh - 72px);margin:0 12px 16px;border-radius:12px;overflow:hidden}input,select{height:34px;max-height:34px;padding:4px}button{height:32px}#content dialog{display:block}`,'text/css');
         if(pathname==='/app.css')return fulfill(read('css/style.css'),'text/css');
         if(pathname==='/app.js')return fulfill(read('js/app.js'),'application/javascript');
-        if(pathname==='/oc.js')return fulfill(`window.OC={generateUrl:path=>path,requestToken:'test-token'};`,'application/javascript');
+        if(pathname==='/oc.js')return fulfill(`window.OC={generateUrl:path=>path,requestToken:'test-token'};
+          window.testCamera={starts:0,stops:0,permissions:0};
+          navigator.mediaDevices.getUserMedia=async()=>{window.testCamera.permissions++;return new MediaStream()};
+          window.GefahrstoffScanner={start:async(video)=>{window.testCamera.starts++;video.srcObject=await navigator.mediaDevices.getUserMedia({video:true});return {stop:async()=>{window.testCamera.stops++}}}};`,'application/javascript');
         if(pathname.endsWith('/api/bootstrap'))return fulfill({products:[product],locations:[{id:1,name:'Chemieraum'}]});
         if(pathname.endsWith('/api/sds-analysis')){analyzed++;return fulfill(toolFailure?{...analysis,status:'unclear',suggestions:[],evidence:[],extraction_error:'tools missing',notice:'PDF lokal geladen; Textauswertung nicht verfügbar.'}:analysis)}
         if(pathname.endsWith('/api/products/1/files')){attached++;assert.match(route.request().postData(),/draft_token/);return fulfill({id:19},'application/json',201)}
@@ -36,9 +40,33 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
       });
       await page.goto('https://gsk.test/');
       await page.getByRole('button',{name:'Bearbeiten',exact:true}).waitFor();
+      const assertClosed=async id=>{
+        assert.equal(await page.locator('#'+id).evaluate(dialog=>dialog.open),false,id+' should be closed');
+        assert.equal(await page.locator('#'+id).isVisible(),false,id+' is visible without the open attribute');
+      };
+      for(const id of ['product-dialog','stock-dialog','scan-dialog'])await assertClosed(id);
+      assert.deepEqual(await page.evaluate(()=>window.testCamera),{starts:0,stops:0,permissions:0},'Camera accessed on app load');
+      await page.getByRole('button',{name:'Bestand ändern',exact:true}).click();
+      assert.equal(await page.locator('#stock-dialog').isVisible(),true);
+      await page.locator('#stock-dialog .close').click();await assertClosed('stock-dialog');
       if(process.env.GSK_SCREENSHOT_DIR){mkdirSync(process.env.GSK_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.GSK_SCREENSHOT_DIR,`bestand-${size.width}.png`)});}
       await page.getByRole('button',{name:'Bearbeiten',exact:true}).click();
       assert.equal(await page.locator('#product-dialog').evaluate(dialog=>dialog.matches(':modal')),false,'Editor is still a modal overlay');
+      await assertClosed('scan-dialog');
+      assert.equal(await page.evaluate(()=>window.testCamera.permissions),0,'Opening the editor requested the camera');
+      for(const exit of ['close','escape','manual']){
+        await page.getByRole('button',{name:'Scannen',exact:true}).click();
+        await page.getByText('Barcode vor die Kamera halten …',{exact:true}).waitFor();
+        assert.equal(await page.locator('#scan-dialog').isVisible(),true);
+        if(exit==='close')await page.locator('#scan-dialog .close').click();
+        else if(exit==='escape')await page.keyboard.press('Escape');
+        else await page.getByRole('button',{name:'Nummer eingeben',exact:true}).click();
+        await assertClosed('scan-dialog');
+      }
+      assert.deepEqual(await page.evaluate(()=>window.testCamera),{starts:3,stops:3,permissions:3},'Scanner lifecycle did not stop cleanly');
+      await page.getByRole('button',{name:'Produktbearbeitung schließen',exact:true}).click();
+      await assertClosed('product-dialog');
+      await page.getByRole('button',{name:'Bearbeiten',exact:true}).click();
       await page.getByRole('link',{name:'04 SDB & Dateien'}).click();
       await page.getByRole('button',{name:'SDB auswerten',exact:true}).click();
       await page.getByText('Als gefährlich eingestuft laut erkanntem SDB-Text',{exact:true}).waitFor();
@@ -77,6 +105,6 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
       assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);
       await page.close();
     }
-    console.log('Desktop/mobile template, link-only analysis, local-copy save, retained source link and CSP checks passed');
+    console.log('Desktop/mobile closed-dialog startup, explicit camera start/stop, SDB save and CSP checks passed');
   } finally {await browser.close()}
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -98,6 +98,8 @@
 #gsk-app #load-error {display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;margin-bottom:24px;border:1px solid #dfb7aa;border-radius:8px;background:#fff4ed;color:#873b22}
 #gsk-app #load-error button {flex-shrink:0;min-height:40px;margin:0;padding:8px 14px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit}
 #gsk-app dialog {position:fixed;inset:0;margin:auto;border:1px solid var(--gsk-border);border-radius:var(--gsk-radius);padding:0;width:min(580px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 80px);color:var(--gsk-text);background:var(--gsk-surface);box-shadow:0 12px 48px #0002}
+/* Host styles must never expose a dialog which has not been opened. */
+#gsk-app dialog:not([open]) {display:none!important}
 #gsk-app dialog::backdrop {background:#0005}
 #gsk-app .dialog-head {display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:24px 28px;border-bottom:1px solid var(--gsk-border);flex-shrink:0}
 #gsk-app .dialog-head .hint {margin-top:8px}

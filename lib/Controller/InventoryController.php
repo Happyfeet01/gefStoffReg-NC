@@ -259,8 +259,8 @@ class InventoryController extends Controller {
             if (!is_string($input) || strlen($input) > 600 || !filter_var($input, FILTER_VALIDATE_URL)) return $this->fail('Bitte eine vollständige Hersteller-URL eingeben.');
             $parts = parse_url($input);
             $host = strtolower($parts['host'] ?? '');
-            if (($parts['scheme'] ?? '') !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || !in_array($host, ['www.witty.eu','witty.eu','www.flamingo-group.de','flamingo-group.de'], true)) {
-                return $this->fail('Derzeit werden nur Produktseiten von witty.eu und flamingo-group.de eingelesen.');
+            if (($parts['scheme'] ?? '') !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || !in_array($host, ['www.witty.eu','witty.eu','www.flamingo-group.de','flamingo-group.de','www.beko-group.de','beko-group.de'], true)) {
+                return $this->fail('Derzeit werden nur Produktseiten von witty.eu, flamingo-group.de und beko-group.de eingelesen.');
             }
             $response = $this->clientService->newClient()->get($input, [
                 'timeout' => 8, 'allow_redirects' => false,
@@ -297,6 +297,45 @@ class InventoryController extends Controller {
                         break;
                     }
                 }
+            }
+
+            if (in_array($host, ['www.beko-group.de', 'beko-group.de'], true)) {
+                $result['manufacturer'] = 'beko GmbH';
+                // Read the active variant, never the other sizes/colours in dropdown links.
+                $read = static function (string $expression) use ($xpath): string {
+                    $nodes = $xpath->query($expression);
+                    return $nodes && $nodes->length
+                        ? trim(preg_replace('/\\s+/u', ' ', $nodes->item(0)->textContent)) : '';
+                };
+                $article = $read('//*[contains(concat(" ", normalize-space(@class), " "), " attribute-article_number ")]');
+                if (preg_match('/^Artikel-Nr\\.\\s*([0-9][0-9 .\\/-]{0,60})$/u', $article, $m)) {
+                    $result['article'] = trim($m[1]);
+                }
+                $content = $read('//button[@id="contentButton"]');
+                if (preg_match('/^([0-9]+(?:[,.][0-9]+)?)\\s*(ml|l|kg|g)$/ui', $content, $m)) {
+                    $size = (float)str_replace(',', '.', $m[1]);
+                    if ($size > 0 && $size <= 1000000) {
+                        $result['pack_size'] = $size;
+                        $result['unit'] = strtolower($m[2]);
+                    }
+                }
+                $colour = $read('//button[@id="colourButton"]');
+                if ($result['name'] !== '' && $colour !== '' && mb_strlen($colour) <= 40) {
+                    $result['name'] = mb_substr($result['name'] . ' – ' . $colour, 0, 160);
+                }
+                // Only a uniquely linked German manufacturer SDB; never invent a download URL.
+                $sdsLinks = [];
+                foreach ($xpath->query('//a[@href]') ?: [] as $link) {
+                    $label = trim(preg_replace('/\\s+/u', ' ', $link->textContent));
+                    $href = $link->getAttribute('href');
+                    if (preg_match('/Sicherheitsdatenblatt.*\\(DE\\)/ui', $label)
+                        && str_starts_with($href, '/asset/download/beko-group-de/')
+                        && preg_match('/\\.pdf$/i', $href) && !preg_match('/[\\x00-\\x20]/', $href)) {
+                        $url = 'https://' . $host . $href;
+                        if (strlen($url) <= 600 && filter_var($url, FILTER_VALIDATE_URL)) $sdsLinks[$url] = true;
+                    }
+                }
+                if (count($sdsLinks) === 1) $result['sds_url'] = array_key_first($sdsLinks);
             }
             if ($result['name'] === '') return $this->fail('Kein Produktname auf der Herstellerseite gefunden.', 422);
             return new DataResponse($result);

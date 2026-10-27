@@ -115,3 +115,13 @@ Quellcode der App: AGPL-3.0-or-later. Das beigefügte Gemeindewappen wurde vom N
 ## Korrekturen 0.1.18
 
 Mistral verwendet `/v1/chat/completions` mit `ministral-8b-2512`, passend zu Anfrage und Antwortparser. OpenAI Nano verwendet ein verbindliches JSON-Schema und reasoning `none`, damit das Ausgabelimit für die Formularantwort zur Verfügung steht. Unvollständige, abgelehnte, leere und fehlerhafte Antworten werden getrennt gemeldet. Quellenprüfung bleibt strikt: nicht belegte URLs werden nicht übernommen. Ergebnisfelder werden bei Suchmeldungen sichtbar gescrollt. Regressionstest: `php tests/research-response.php`. Live-API-Prüfung auf dem Zielserver erforderlich.
+
+
+## Meine Open-Source-Arbeit unterstützen
+
+Ich entwickle und pflege dieses Projekt und weitere Open-Source-Software in meiner Freizeit. Wenn dir meine Arbeit hilft, kannst du die Weiterentwicklung freiwillig unterstützen:
+
+- [Buy Me a Coffee](https://buymeacoffee.com/sly5ir9ov)
+- [PayPal](https://paypal.me/LarsM1980)
+
+Genauso freue ich mich über Fehlermeldungen, Rückmeldungen, Dokumentationsverbesserungen und Beiträge zum Code. Die Unterstützung ist freiwillig.

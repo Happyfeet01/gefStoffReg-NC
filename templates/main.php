@@ -5,7 +5,7 @@ declare(strict_types=1);
   <div class="inventory-shell">
     <header class="topbar">
       <div class="brand"><span class="app-symbol" aria-hidden="true">◇</span><div><strong>Gefahrstoffkataster</strong><span>Produkte, Sicherheitsdatenblätter und Bestand</span></div></div>
-      <div class="toolbar"><a id="export-xlsx" class="secondary">Excel exportieren</a><a id="export-csv" class="text-link">CSV</a></div>
+      <div class="toolbar"><button id="manage-shares" type="button" class="secondary" hidden>Freigaben</button><a id="export-xlsx" class="secondary">Excel exportieren</a><a id="export-csv" class="text-link">CSV</a></div>
     </header>
     <nav class="mode-switch" aria-label="Bereich auswählen">
       <button id="view-lager" type="button" class="is-active" aria-pressed="true">Lager</button>
@@ -116,6 +116,23 @@ declare(strict_types=1);
     </form>
   </dialog>
 
+  <dialog id="sharing-dialog" aria-labelledby="sharing-title">
+    <header class="dialog-head"><div><h2 id="sharing-title">Freigaben verwalten</h2><p class="hint">Nextcloud-Benutzer oder -Gruppen mit passenden Rechten einladen.</p></div><button class="close" type="button" data-close="sharing-dialog" aria-label="Freigaben schließen">×</button></header>
+    <div class="dialog-scroll">
+      <form id="sharing-form">
+        <div class="grid">
+          <label>Freigeben an<select id="share-type" required><option value="user">Benutzer</option><option value="group">Gruppe</option></select></label>
+          <label>Nextcloud-ID<input id="share-id" required maxlength="128" placeholder="Benutzer- oder Gruppen-ID"></label>
+          <label class="full">Berechtigung<select id="share-role" required><option value="reader">Lesen</option><option value="stock_editor">Lager bearbeiten</option><option value="hazard_editor">Gefahrstoffdaten bearbeiten</option><option value="manager">Verwalten</option></select></label>
+        </div>
+        <p class="hint">Lagerbearbeiter dürfen Bestände buchen und ungefährliche Verbrauchsmaterialien pflegen. Gefahrstoffangaben und Freigaben sind gesondert geschützt.</p>
+        <div class="share-form-actions"><button type="submit" class="primary">Freigabe speichern</button></div>
+      </form>
+      <h3 class="share-heading">Aktuelle Freigaben</h3>
+      <div id="share-list" aria-live="polite"></div>
+      <p class="hint">Die bisherige Nextcloud-Gruppe freibad-gefahrstoffe behält vorerst ihre bisherigen Rechte. Ihre Mitgliedschaft wird weiterhin in Nextcloud verwaltet. Die Freigaben gelten derzeit für den gesamten App-Bestand, noch nicht pro Standort.</p>
+    </div>
+  </dialog>
   <dialog id="stock-dialog" aria-labelledby="stock-title">
     <form id="stock-form">
       <header class="dialog-head"><div><p class="eyebrow">BESTANDSBUCHUNG</p><h2 id="stock-title">Bestand ändern</h2></div><button class="close" type="button" data-close="stock-dialog" aria-label="Schließen">×</button></header>

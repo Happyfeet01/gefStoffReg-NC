@@ -9,7 +9,7 @@ const read=file=>readFileSync(path.join(root,file),'utf8');
 const template=read('templates/main.php').replace(/^<\?php[\s\S]*?\?>/,'');
 const token='1760000000-'+'a'.repeat(32);
 const sourceUrl='https://manufacturer.example/sds.pdf';
-const product={id:1,name:'Witty Poolreiniger',manufacturer:'Witty',article:'123456',ean:'4001234567890',category:'Reinigung',use_area:'Becken',pack_size:10,unit:'l',hazardous:false,classification:'',ghs:'',signal:'',h_statements:'',checked_at:'',sds_date:'2024-04-02',source_url:'https://manufacturer.example/product',sds_url:sourceUrl,sds_id:null,stock:[{location_id:1,packs:3}],photos:[]};
+const product={id:1,name:'Witty Poolreiniger',material_kind:'consumable',manufacturer:'Witty',article:'123456',ean:'4001234567890',category:'Reinigung',use_area:'Becken',pack_size:10,unit:'l',hazardous:false,classification:'',ghs:'',signal:'',h_statements:'',checked_at:'',sds_date:'2024-04-02',source_url:'https://manufacturer.example/product',sds_url:sourceUrl,sds_id:null,stock:[{location_id:1,packs:3}],photos:[]};
 const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.repeat(64),ocr_pages:[],page_limit:4,draft_token:token,
   notice:'Produkt, Hersteller und SDB-Version im Original prüfen.',suggestions:[{field:'classification',value:'Skin Corr. 1A',evidence:[{page:2,text:'Skin Corr. 1A H314'}]}],evidence:[{page:2,text:'Skin Corr. 1A H314'}]};
 (async()=>{
@@ -17,7 +17,7 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
   try {
     for(const size of [{width:1440,height:1000},{width:390,height:844}]){
       const page=await browser.newPage({viewport:size});
-      const errors=[],blocked=[];let analyzed=0,attached=0,saved,toolFailure=false;
+      const errors=[],blocked=[];let analyzed=0,attached=0,saved,toolFailure=false,permissionRole='manager';
       page.on('pageerror',error=>errors.push(error.message));
       page.on('console',message=>{if(/violates.*Content Security Policy|Refused to/.test(message.text()))blocked.push(message.text())});
       await page.route('https://gsk.test/**',async route=>{
@@ -32,7 +32,7 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
           window.testCamera={starts:0,stops:0,permissions:0};
           navigator.mediaDevices.getUserMedia=async()=>{window.testCamera.permissions++;return new MediaStream()};
           window.GefahrstoffScanner={start:async(video)=>{window.testCamera.starts++;video.srcObject=await navigator.mediaDevices.getUserMedia({video:true});return {stop:async()=>{window.testCamera.stops++}}}};`,'application/javascript');
-        if(pathname.endsWith('/api/bootstrap'))return fulfill({products:[product],locations:[{id:1,name:'Chemieraum'}]});
+        if(pathname.endsWith('/api/bootstrap'))return fulfill({products:[product],locations:[{id:1,name:'Chemieraum'}],permissions:{role:permissionRole,read:true,stock:permissionRole!=='reader',editBasic:permissionRole!=='reader',editSafety:permissionRole==='manager',manage:permissionRole==='manager'}});
         if(pathname.endsWith('/api/sds-analysis')){analyzed++;return fulfill(toolFailure?{...analysis,status:'unclear',suggestions:[],evidence:[],extraction_error:'tools missing',notice:'PDF lokal geladen; Textauswertung nicht verfügbar.'}:analysis)}
         if(pathname.endsWith('/api/products/1/files')){attached++;assert.match(route.request().postData(),/draft_token/);return fulfill({id:19},'application/json',201)}
         if(pathname.endsWith('/api/products/1')){const match=route.request().postData().match(/name="payload"\r\n\r\n([^\r]*)/);saved=JSON.parse(match[1]);return fulfill({id:1})}
@@ -120,6 +120,24 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
       await page.getByText('Produkt und Dateien gespeichert.',{exact:true}).waitFor();
       assert.equal(attached,2,'Missing OCR tools prevented local-copy save');
       assert.equal(saved.sds_url,sourceUrl);
+      assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);
+      permissionRole='reader';await page.reload();
+      await page.getByRole('button',{name:'Ansehen',exact:true}).waitFor();
+      assert.equal(await page.getByRole('button',{name:'Bestand ändern',exact:true}).count(),0,'Read-only user can book stock');
+      assert.equal(await page.locator('#new-product').isVisible(),false,'Read-only user can create products');
+      assert.equal(await page.locator('#manage-shares').isVisible(),false,'Read-only user can manage shares');
+      await page.getByRole('button',{name:'Ansehen',exact:true}).click();
+      assert.equal(await page.locator('#product-form [name=name]').isDisabled(),true,'Read-only field was enabled');
+      assert.equal(await page.locator('#save-product').isVisible(),false,'Read-only submit visible');
+      await page.locator('#product-dialog .close').click();
+      permissionRole='stock_editor';await page.reload();
+      await page.getByRole('button',{name:'Bearbeiten',exact:true}).waitFor();
+      await page.getByRole('button',{name:'Bearbeiten',exact:true}).click();
+      assert.equal(await page.locator('#product-form [name=name]').isDisabled(),false,'Stock editor cannot edit basic fields');
+      assert.equal(await page.locator('#product-form [name=hazardous]').isDisabled(),true,'Stock editor can edit hazard flag');
+      assert.equal(await page.locator('#sds-file').isDisabled(),true,'Stock editor can change SDB');
+      assert.equal(await page.locator('#photo-gallery').isDisabled(),false,'Stock editor cannot add product photo');
+      await page.locator('#product-dialog .close').click();
       assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);
       await page.close();
     }

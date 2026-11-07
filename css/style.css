@@ -41,6 +41,10 @@
 #gsk-app .brand span:not(.app-symbol) {display:block;font-size:12px;color:var(--gsk-muted)}
 #gsk-app .app-symbol {display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--gsk-border);border-radius:10px;color:var(--gsk-primary);font-size:30px}
 #gsk-app .toolbar {display:flex;align-items:center;gap:16px}
+#gsk-app .mode-switch {display:flex;align-items:center;gap:8px;padding:12px 32px;border-bottom:1px solid var(--gsk-border)}
+#gsk-app .mode-switch button {min-height:44px;padding:10px 18px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--gsk-muted);font:inherit;font-weight:600}
+#gsk-app .mode-switch button:hover {background:var(--gsk-soft);color:var(--gsk-text)}
+#gsk-app .mode-switch button.is-active {background:var(--gsk-soft);color:var(--gsk-primary);border-color:var(--gsk-border)}
 #gsk-app main {padding:28px 32px 32px;max-width:1600px;margin:auto}
 #gsk-app .hero {display:flex;justify-content:space-between;align-items:center;gap:24px;padding:0 0 28px}
 #gsk-app .hero p:last-child {color:var(--gsk-muted);max-width:720px;margin-top:10px}
@@ -163,6 +167,8 @@
 }
 @media(max-width:720px) {
   #gsk-app .topbar {padding:16px;flex-wrap:wrap}
+  #gsk-app .mode-switch {padding:10px 16px;gap:6px}
+  #gsk-app .mode-switch button {flex:1;min-width:0;padding:10px 6px;font-size:13px}
   #gsk-app .brand span:not(.app-symbol) {display:none}
   #gsk-app main {padding:20px 16px}
   #gsk-app .hero {align-items:stretch;flex-direction:column;gap:16px;padding-bottom:24px}

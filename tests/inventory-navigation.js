@@ -45,7 +45,7 @@ assert.equal(products.length, 2, 'Changing the view must not modify products');
 
 // Materialart is independent of hazardous status, and legacy products remain unclassified.
 products[0].material_kind = 'consumable';
-assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), [], 'Kataster must not show consumables unless flagged as hazardous');
+assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), ['Chlorbleichlauge'], 'Material filter must not restrict the Kataster');
 state.view='lager';
 assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), ['Papierhandtücher']);
 assert.deepEqual(matching(state, '', '', '', 'unclassified').map(p=>p.name), ['Chlorbleichlauge']);

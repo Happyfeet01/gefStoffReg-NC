@@ -40,24 +40,27 @@ function setView(view){
   $('view-description').textContent=hazard?'Im Kataster geführte Gefahrstoffe, Sicherheitsdatenblätter und Prüfstatus.':'Produkte erfassen, Sicherheitsdatenblätter prüfen und Mengen je Lagerort verwalten.';
   $('inventory-title').textContent=hazard?'Gefahrstoffkataster':'Produkte & Bestand';
   $('inventory-hint').textContent=hazard?'Nur ausdrücklich als Gefahrstoff gekennzeichnete Produkte werden angezeigt.':'Suche nach Produkt, Hersteller, Artikelnummer oder EAN.';
+  $('material-filter-wrap').hidden=hazard;
   const select=$('hazard-filter');
   const options=hazard?[['','Alle Gefahrstoffe'],['missing','Ohne SDB']]:[['','Alle Produkte'],['hazard','Gefahrstoffe'],['missing','Gefahrstoffe ohne SDB']];
   select.replaceChildren(...options.map(([value,label])=>new Option(label,value)));
   render();
 }
+const materialKinds={chemical:'Chemikalien',consumable:'Verbrauchsmaterial',other:'Sonstiges',unclassified:'Nicht zugeordnet'};
 function render(){
   $('count-products').textContent=state.products.length;
   $('count-hazards').textContent=state.products.filter(x=>x.hazardous).length;
   $('count-missing').textContent=state.products.filter(x=>x.hazardous&&!x.sds_id&&!x.sds_url).length;
   $('count-locations').textContent=state.locations.length;
   optionize($('location-filter'),$('location-filter').value,'Alle Lagerorte');
-  const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;
-  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
+  const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;const kind=$('material-filter').value;
+  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(state.view!=='lager'||!kind||(p.material_kind||'unclassified')===kind)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
   const list=$('product-list');list.replaceChildren();$('empty').hidden=matching.length>0;
   if(!matching.length)$('empty').textContent=state.products.length?'Keine Produkte für diese Filter gefunden.':'Hier ist noch kein Produkt erfasst. Starte mit dem ersten Gebinde.';
   for(const p of matching){
     const card=el('article','card');const top=el('div','card-top');top.append(el('div','product-icon',p.hazardous?'!':'●'));
     const details=el('div');details.append(el('h3','',p.name),el('small','muted',[p.manufacturer,p.category].filter(Boolean).join(' · ')||'Noch keine weiteren Angaben'));
+    details.append(el('span','badge',materialKinds[p.material_kind]||materialKinds.unclassified));
     if(p.hazardous)details.append(el('span','badge hazard','Gefahrstoff'));
     if(p.hazardous&&!p.sds_id&&!p.sds_url)details.append(el('span','badge warn','SDB fehlt'));
     if(p.sds_url&&!p.sds_id)details.append(el('span','badge','SDB als Herstellerlink'));
@@ -94,6 +97,7 @@ function openProduct(p=null){
     if(field.tagName==='SELECT'&&value&&!Array.from(field.options).some(option=>option.value===String(value)))field.add(new Option(String(value),String(value)));
     field.value=value;
   }f.elements.hazardous.checked=!!p.hazardous}
+  f.elements.material_kind.value=p?.material_kind||'unclassified';
   const links=$('current-files');links.replaceChildren();
   if(p?.sds_id){const a=el('a','', 'Vorhandenes SDB ↗');a.href=url(`/api/files/${p.sds_id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
@@ -407,7 +411,7 @@ $('product-form').addEventListener('submit',async event=>{
   event.preventDefault();const save=$('save-product');save.disabled=true;save.textContent='Speichere …';
   try{
     const f=event.currentTarget;
-    const keys=['name','manufacturer','article','ean','ufi','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url'];
+    const keys=['name','manufacturer','article','ean','ufi','material_kind','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url'];
     const body=Object.fromEntries(keys.map(k=>[k,f.elements[k].value.trim()]));
     Object.assign(body,{pack_size:Number(f.elements.pack_size.value),hazardous:f.elements.hazardous.checked});
     const review=f.sdsReviewIdentity?.[0]===f.elements.name.value&&f.sdsReviewIdentity?.[1]===f.elements.manufacturer.value&&f.sdsReviewSource===f.elements.sds_url.value.trim()?f.sdsReview:null;
@@ -450,7 +454,7 @@ $('view-gefahr').addEventListener('click',()=>setView('gefahr'));
 $('new-product').addEventListener('click',()=>openProduct());
 $('retry-load').addEventListener('click',load);
 $('add-location').addEventListener('click',async()=>{const name=prompt('Neuer Lagerort (z. B. Technikraum PLB):');if(name===null)return;try{const result=await request('/api/locations',{name});await load();notice(result.existing?'Dieser Lagerort ist bereits vorhanden und kann ausgewählt werden.':'Lagerort angelegt.')}catch(err){notice(err.message,true)}});
-for(const id of ['search','location-filter','hazard-filter'])$(id).addEventListener(id==='search'?'input':'change',render);
+for(const id of ['search','location-filter','material-filter','hazard-filter'])$(id).addEventListener(id==='search'?'input':'change',render);
 $('stock-location').addEventListener('change',updateStockContext);
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.close)));
 document.querySelectorAll('dialog').forEach(d=>d.addEventListener('close',()=>{

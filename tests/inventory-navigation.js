@@ -30,7 +30,7 @@ assert.deepEqual(elements['hazard-filter'].options.map(x => x.value), ['', 'haza
 assert.equal(renders, 2);
 const matchingLine = source.split('\n').find(line => line.includes('const matching=state.products.filter'));
 assert.ok(matchingLine, 'Product filter not found');
-const matching = new Function('state', 'q', 'loc', 'hazard', matchingLine + '\nreturn matching;');
+const matching = new Function('state', 'q', 'loc', 'hazard', 'kind', matchingLine + '\nreturn matching;');
 const makeProduct = (name, hazardous) => ({
   name, hazardous, manufacturer:'', article:'', ean:'', ufi:'', stock:[],
 });
@@ -40,4 +40,12 @@ assert.equal(matching(state, '', '', '').length, 2, 'Lager must show all product
 state.view = 'gefahr';
 assert.deepEqual(matching(state, '', '', '').map(p => p.name), ['Chlorbleichlauge'], 'Kataster must show only explicitly flagged hazards');
 assert.equal(products.length, 2, 'Changing the view must not modify products');
-console.log('Inventory navigation and shared-product filtering passed');
+
+// Materialart is independent of hazardous status, and legacy products remain unclassified.
+products[0].material_kind = 'consumable';
+assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), [], 'Kataster must not show consumables unless flagged as hazardous');
+state.view='lager';
+assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), ['Papierhandtücher']);
+assert.deepEqual(matching(state, '', '', '', 'unclassified').map(p=>p.name), ['Chlorbleichlauge']);
+
+console.log('Inventory navigation, material-kind filtering and shared-product checks passed');

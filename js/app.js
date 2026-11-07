@@ -53,8 +53,12 @@ function render(){
   $('count-missing').textContent=state.products.filter(x=>x.hazardous&&!x.sds_id&&!x.sds_url).length;
   $('count-locations').textContent=state.locations.length;
   optionize($('location-filter'),$('location-filter').value,'Alle Lagerorte');
-  const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;const kind=$('material-filter').value;
-  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(state.view!=='lager'||!kind||(p.material_kind||'unclassified')===kind)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
+  const categories=[...new Set(state.products.map(p=>p.category?.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
+  const categoryFilter=$('category-filter'),selectedCategory=categoryFilter.value;
+  categoryFilter.replaceChildren(new Option('Alle Kategorien',''),...categories.map(name=>new Option(name,name)));
+  categoryFilter.value=categories.includes(selectedCategory)?selectedCategory:'';
+  const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;const kind=$('material-filter').value;const category=$('category-filter').value;
+  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(state.view!=='lager'||!kind||(p.material_kind||'unclassified')===kind)&&(!category||p.category===category)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
   const list=$('product-list');list.replaceChildren();$('empty').hidden=matching.length>0;
   if(!matching.length)$('empty').textContent=state.products.length?'Keine Produkte für diese Filter gefunden.':'Hier ist noch kein Produkt erfasst. Starte mit dem ersten Gebinde.';
   for(const p of matching){
@@ -454,7 +458,7 @@ $('view-gefahr').addEventListener('click',()=>setView('gefahr'));
 $('new-product').addEventListener('click',()=>openProduct());
 $('retry-load').addEventListener('click',load);
 $('add-location').addEventListener('click',async()=>{const name=prompt('Neuer Lagerort (z. B. Technikraum PLB):');if(name===null)return;try{const result=await request('/api/locations',{name});await load();notice(result.existing?'Dieser Lagerort ist bereits vorhanden und kann ausgewählt werden.':'Lagerort angelegt.')}catch(err){notice(err.message,true)}});
-for(const id of ['search','location-filter','material-filter','hazard-filter'])$(id).addEventListener(id==='search'?'input':'change',render);
+for(const id of ['search','location-filter','material-filter','category-filter','hazard-filter'])$(id).addEventListener(id==='search'?'input':'change',render);
 $('stock-location').addEventListener('change',updateStockContext);
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.close)));
 document.querySelectorAll('dialog').forEach(d=>d.addEventListener('close',()=>{

@@ -6,7 +6,7 @@ const start = source.indexOf('// Navigation is a view');
 const end = source.indexOf('function render(){', start);
 assert.ok(start >= 0 && end > start, 'Navigation function not found');
 const elements = {};
-for (const id of ['view-lager', 'view-gefahr', 'view-title', 'view-description', 'inventory-title', 'inventory-hint', 'hazard-filter']) {
+for (const id of ['view-lager', 'view-gefahr', 'view-title', 'view-description', 'inventory-title', 'inventory-hint', 'hazard-filter', 'material-filter-wrap']) {
   elements[id] = {
     attributes: {},
     classList: {toggle() {}},
@@ -22,17 +22,19 @@ const switchView = new Function('$', 'state', 'Option', 'render',
   id => elements[id], state, Option, () => {renders++;});
 switchView('gefahr');
 assert.equal(state.view, 'gefahr');
+assert.equal(elements['material-filter-wrap'].hidden,true);
 assert.equal(elements['view-gefahr'].attributes['aria-pressed'], 'true');
 assert.deepEqual(elements['hazard-filter'].options.map(x => x.value), ['', 'missing']);
 switchView('lager');
 assert.equal(elements['view-lager'].attributes['aria-pressed'], 'true');
+assert.equal(elements['material-filter-wrap'].hidden,false);
 assert.deepEqual(elements['hazard-filter'].options.map(x => x.value), ['', 'hazard', 'missing']);
 assert.equal(renders, 2);
 const matchingLine = source.split('\n').find(line => line.includes('const matching=state.products.filter'));
 assert.ok(matchingLine, 'Product filter not found');
-const matching = new Function('state', 'q', 'loc', 'hazard', matchingLine + '\nreturn matching;');
+const matching = new Function('state', 'q', 'loc', 'hazard', 'kind', 'category', matchingLine + '\nreturn matching;');
 const makeProduct = (name, hazardous) => ({
-  name, hazardous, manufacturer:'', article:'', ean:'', ufi:'', stock:[],
+  name, hazardous, category:'', manufacturer:'', article:'', ean:'', ufi:'', stock:[],
 });
 const products = [makeProduct('Papierhandtücher', false), makeProduct('Chlorbleichlauge', true)];
 state.products = products;
@@ -40,4 +42,15 @@ assert.equal(matching(state, '', '', '').length, 2, 'Lager must show all product
 state.view = 'gefahr';
 assert.deepEqual(matching(state, '', '', '').map(p => p.name), ['Chlorbleichlauge'], 'Kataster must show only explicitly flagged hazards');
 assert.equal(products.length, 2, 'Changing the view must not modify products');
-console.log('Inventory navigation and shared-product filtering passed');
+
+// Materialart is independent of hazardous status, and legacy products remain unclassified.
+products[0].material_kind = 'consumable';
+products[0].category='Sanitär';
+assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), ['Chlorbleichlauge'], 'Material filter must not restrict the Kataster');
+state.view='lager';
+assert.deepEqual(matching(state, '', '', '', 'consumable').map(p=>p.name), ['Papierhandtücher']);
+assert.deepEqual(matching(state, '', '', '', 'unclassified').map(p=>p.name), ['Chlorbleichlauge']);
+
+assert.deepEqual(matching(state, '', '', '', '', 'Sanitär').map(p=>p.name), ['Papierhandtücher']);
+assert.deepEqual(matching(state, '', '', '', '', 'Wasserpflege').map(p=>p.name), []);
+console.log('Inventory navigation, material-kind and category filtering passed');

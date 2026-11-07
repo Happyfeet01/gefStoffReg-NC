@@ -58,7 +58,7 @@
 #gsk-app .workspace {border:1px solid var(--gsk-border);border-radius:var(--gsk-radius);overflow:hidden}
 #gsk-app .section-head {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 24px}
 #gsk-app .section-head .hint {margin-top:4px}
-#gsk-app .filters {display:grid;grid-template-columns:minmax(200px,1fr) minmax(180px,.35fr) minmax(200px,.4fr);gap:14px;padding:0 24px 22px;border-bottom:1px solid var(--gsk-border)}
+#gsk-app .filters {display:grid;grid-template-columns:minmax(190px,1.3fr) repeat(4,minmax(145px,.65fr));gap:14px;padding:0 24px 22px;border-bottom:1px solid var(--gsk-border)}
 #gsk-app label {display:block;min-width:0;font-size:13px;font-weight:600;color:var(--gsk-text)}
 #gsk-app :is(input:not([type=checkbox]),select,textarea) {
   display:block;box-sizing:border-box;width:100%;min-width:0;
@@ -159,6 +159,8 @@
 #gsk-app #toast.show {opacity:1}
 #gsk-app #toast.error {background:#9a3527;color:#fff}
 @media(max-width:1000px) {
+  #gsk-app .filters {grid-template-columns:repeat(2,minmax(0,1fr))}
+  #gsk-app .filters .search {grid-column:1/-1}
   #gsk-app .editor-layout {grid-template-columns:170px minmax(0,1fr)}
   #gsk-app .editor-nav {padding:20px 8px}
   #gsk-app #product-dialog .dialog-scroll {padding:0 24px 24px}

@@ -41,7 +41,7 @@ class InventoryController extends Controller {
         'source_url' => 600, 'sds_url' => 600, 'pmb_url' => 600,
     ];
     private const HEADERS = ['Produkt','Hersteller','Artikelnummer','EAN','UFI',
-        'Einsatzbereich','Kategorie','Lagerort','Gebindeanzahl','Gebindegröße',
+        'Einsatzbereich','Kategorie','Materialart','Lagerort','Gebindeanzahl','Gebindegröße',
         'Einheit','Gesamtmenge','Gefahrstoff','Einstufung','GHS','Signalwort',
         'H-Sätze','SDB-Datum','SDB-PDF in Nextcloud','Geprüft am','Hinweise','Herstellerseite','Hersteller-SDB-Link','Produktmerkblatt-Link'];
 
@@ -155,6 +155,13 @@ class InventoryController extends Controller {
             throw new \InvalidArgumentException('Gebindegröße ungültig.');
         }
         $data['pack_size'] = (float)$size;
+        // Materialart und Gefahrstoffkennzeichnung bleiben voneinander unabhängig.
+        // Ältere Datensätze erhalten beim Bearbeiten keinen erfundenen Materialtyp.
+        $kind = $input['material_kind'] ?? 'unclassified';
+        if (!is_string($kind) || !in_array($kind, ['unclassified', 'chemical', 'consumable', 'other'], true)) {
+            throw new \InvalidArgumentException('Unbekannte Materialart.');
+        }
+        $data['material_kind'] = $kind;
         if (!is_bool($input['hazardous'] ?? null)) {
             throw new \InvalidArgumentException('Gefahrstoff muss Ja oder Nein sein.');
         }
@@ -762,7 +769,7 @@ class InventoryController extends Controller {
                 $count = $s ? (int)$s['milli'] / 1000 : 0;
                 $fileUrl = isset($files[$entry['id']]) ? $this->urls->linkToRouteAbsolute('gefahrstoffkataster.inventory.download', ['id' => $files[$entry['id']]]) : '';
                 $result[] = [$p['name'], $p['manufacturer'], $p['article'], $p['ean'], $p['ufi'],
-                    $p['use_area'], $p['category'], $s ? ($locations[$s['location_id']] ?? '') : '',
+                    $p['use_area'], $p['category'], ['chemical'=>'Chemikalien','consumable'=>'Verbrauchsmaterial','other'=>'Sonstiges','unclassified'=>'Nicht zugeordnet'][$p['material_kind'] ?? 'unclassified'] ?? 'Nicht zugeordnet', $s ? ($locations[$s['location_id']] ?? '') : '',
                     $count, $p['pack_size'], $p['unit'], round($count * $p['pack_size'], 6),
                     !empty($p['hazardous']) ? 'Ja' : 'Nein', $p['classification'], $p['ghs'],
                     $p['signal'], $p['h_statements'], $p['sds_date'], $fileUrl,

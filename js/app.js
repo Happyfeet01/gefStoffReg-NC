@@ -119,6 +119,8 @@ function openProduct(p=null){
     const section=control.closest('.form-section');
     control.disabled=!canEdit||(!canSafety&&section?.id!=='product-basics');
   }
+  // Stock editors may attach photos to explicitly categorized non-hazardous materials.
+  if(canEdit&&!canSafety){$('photo-gallery').disabled=false;$('photo-camera').disabled=false}
   $('save-product').hidden=!canEdit;
   show('product-dialog');
 }

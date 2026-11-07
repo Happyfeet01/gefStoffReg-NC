@@ -155,6 +155,13 @@ class InventoryController extends Controller {
             throw new \InvalidArgumentException('Gebindegröße ungültig.');
         }
         $data['pack_size'] = (float)$size;
+        // Materialart und Gefahrstoffkennzeichnung bleiben voneinander unabhängig.
+        // Ältere Datensätze erhalten beim Bearbeiten keinen erfundenen Materialtyp.
+        $kind = $input['material_kind'] ?? 'unclassified';
+        if (!is_string($kind) || !in_array($kind, ['unclassified', 'chemical', 'consumable', 'other'], true)) {
+            throw new \InvalidArgumentException('Unbekannte Materialart.');
+        }
+        $data['material_kind'] = $kind;
         if (!is_bool($input['hazardous'] ?? null)) {
             throw new \InvalidArgumentException('Gefahrstoff muss Ja oder Nein sein.');
         }

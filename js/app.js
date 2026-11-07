@@ -1,4 +1,4 @@
-const state = {products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
+const state = {view:'lager',products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
 const $ = id => document.getElementById(id);
 const url = path => OC.generateUrl('/apps/gefahrstoffkataster'+path);
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
@@ -28,6 +28,23 @@ function optionize(select,selected,allLabel){
 }
 function el(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node}
 function button(label,action){const b=el('button','',label);b.type='button';b.addEventListener('click',action);return b}
+// Navigation is a view on the same inventory, not a second product database.
+function setView(view){
+  if(view!=='lager'&&view!=='gefahr')return;
+  state.view=view;
+  const hazard=view==='gefahr';
+  for(const [id,selected] of [['view-lager',!hazard],['view-gefahr',hazard]]){
+    const tab=$(id);tab.setAttribute('aria-pressed',String(selected));tab.classList.toggle('is-active',selected);
+  }
+  $('view-title').textContent=hazard?'Gefahrstoffe im Überblick':'Dein Bestand im Überblick';
+  $('view-description').textContent=hazard?'Im Kataster geführte Gefahrstoffe, Sicherheitsdatenblätter und Prüfstatus.':'Produkte erfassen, Sicherheitsdatenblätter prüfen und Mengen je Lagerort verwalten.';
+  $('inventory-title').textContent=hazard?'Gefahrstoffkataster':'Produkte & Bestand';
+  $('inventory-hint').textContent=hazard?'Nur ausdrücklich als Gefahrstoff gekennzeichnete Produkte werden angezeigt.':'Suche nach Produkt, Hersteller, Artikelnummer oder EAN.';
+  const select=$('hazard-filter');
+  const options=hazard?[['','Alle Gefahrstoffe'],['missing','Ohne SDB']]:[['','Alle Produkte'],['hazard','Gefahrstoffe'],['missing','Gefahrstoffe ohne SDB']];
+  select.replaceChildren(...options.map(([value,label])=>new Option(label,value)));
+  render();
+}
 function render(){
   $('count-products').textContent=state.products.length;
   $('count-hazards').textContent=state.products.filter(x=>x.hazardous).length;
@@ -35,7 +52,7 @@ function render(){
   $('count-locations').textContent=state.locations.length;
   optionize($('location-filter'),$('location-filter').value,'Alle Lagerorte');
   const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;
-  const matching=state.products.filter(p=>(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
+  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
   const list=$('product-list');list.replaceChildren();$('empty').hidden=matching.length>0;
   if(!matching.length)$('empty').textContent=state.products.length?'Keine Produkte für diese Filter gefunden.':'Hier ist noch kein Produkt erfasst. Starte mit dem ersten Gebinde.';
   for(const p of matching){
@@ -428,6 +445,8 @@ $('stock-form').addEventListener('submit',async event=>{
   try{await request('/api/stock',{product_id:state.stockProduct.id,location_id:Number($('stock-location').value),action:$('stock-action').value,packs:Number($('stock-packs').value),note:$('stock-note').value});close('stock-dialog');await load();notice('Bestand gebucht.')}
   catch(err){notice(err.message,true)}finally{save.disabled=false}
 });
+$('view-lager').addEventListener('click',()=>setView('lager'));
+$('view-gefahr').addEventListener('click',()=>setView('gefahr'));
 $('new-product').addEventListener('click',()=>openProduct());
 $('retry-load').addEventListener('click',load);
 $('add-location').addEventListener('click',async()=>{const name=prompt('Neuer Lagerort (z. B. Technikraum PLB):');if(name===null)return;try{const result=await request('/api/locations',{name});await load();notice(result.existing?'Dieser Lagerort ist bereits vorhanden und kann ausgewählt werden.':'Lagerort angelegt.')}catch(err){notice(err.message,true)}});
@@ -542,6 +561,7 @@ $('scan-photo-input').addEventListener('cancel',()=>{$('scan-status').textConten
 $('scan-manual').addEventListener('click',()=>{close('scan-dialog');$('product-form').elements.ean.focus()});
 $('export-xlsx').href=url('/api/export/xlsx');
 $('export-csv').href=url('/api/export/csv');
+setView('lager');
 load();
 
 

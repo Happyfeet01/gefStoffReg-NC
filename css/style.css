@@ -201,3 +201,11 @@
   #gsk-app #product-dialog .dialog-scroll {scroll-behavior:auto}
   #gsk-app #toast {transition:none}
 }
+
+#gsk-app #sharing-dialog .dialog-scroll {max-height:min(70dvh,740px)}
+#gsk-app #sharing-form .hint {margin:14px 0}
+#gsk-app .share-form-actions {display:flex;justify-content:flex-end;margin:14px 0 24px}
+#gsk-app .share-heading {margin-bottom:12px}
+#gsk-app .share-row {display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid var(--gsk-border);overflow-wrap:anywhere}
+#gsk-app .share-row button {height:auto;min-height:40px;padding:8px 12px;border:1px solid var(--gsk-border);border-radius:8px;background:var(--gsk-surface);color:var(--gsk-text)}
+#gsk-app #share-list {margin-bottom:24px}

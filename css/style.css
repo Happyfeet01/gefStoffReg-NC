@@ -58,7 +58,7 @@
 #gsk-app .workspace {border:1px solid var(--gsk-border);border-radius:var(--gsk-radius);overflow:hidden}
 #gsk-app .section-head {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 24px}
 #gsk-app .section-head .hint {margin-top:4px}
-#gsk-app .filters {display:grid;grid-template-columns:minmax(200px,1fr) repeat(3,minmax(150px,.45fr));gap:14px;padding:0 24px 22px;border-bottom:1px solid var(--gsk-border)}
+#gsk-app .filters {display:grid;grid-template-columns:minmax(190px,1.3fr) repeat(4,minmax(145px,.65fr));gap:14px;padding:0 24px 22px;border-bottom:1px solid var(--gsk-border)}
 #gsk-app label {display:block;min-width:0;font-size:13px;font-weight:600;color:var(--gsk-text)}
 #gsk-app :is(input:not([type=checkbox]),select,textarea) {
   display:block;box-sizing:border-box;width:100%;min-width:0;

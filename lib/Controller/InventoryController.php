@@ -601,6 +601,7 @@ class InventoryController extends Controller {
             if (!$this->access->canEditSafety() && !self::stockEditorMayCreate($data)) return $this->denied();
             $time = gmdate('c');
             $id = $this->insertRow('gsk_product', ['details' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'created_at' => $time, 'updated_at' => $time]);
+            $this->logger->info('Gefahrstoffkataster: Produkt erstellt.', ['product_id' => $id, 'actor' => $this->session->getUser()->getUID()]);
             return new DataResponse(['id' => $id], 201);
         } catch (\InvalidArgumentException|\JsonException $e) {
             return $this->fail($e->getMessage());
@@ -626,6 +627,7 @@ class InventoryController extends Controller {
                 ->set('updated_at', $qb->createNamedParameter(gmdate('c')))
                 ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
                 ->executeStatement();
+            $this->logger->info('Gefahrstoffkataster: Produkt aktualisiert.', ['product_id' => $id, 'actor' => $this->session->getUser()->getUID()]);
             return new DataResponse(['id' => $id]);
         } catch (\InvalidArgumentException|\JsonException $e) {
             return $this->fail($e->getMessage());

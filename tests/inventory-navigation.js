@@ -6,7 +6,7 @@ const start = source.indexOf('// Navigation is a view');
 const end = source.indexOf('function render(){', start);
 assert.ok(start >= 0 && end > start, 'Navigation function not found');
 const elements = {};
-for (const id of ['view-lager', 'view-gefahr', 'view-title', 'view-description', 'inventory-title', 'inventory-hint', 'hazard-filter']) {
+for (const id of ['view-lager', 'view-gefahr', 'view-title', 'view-description', 'inventory-title', 'inventory-hint', 'hazard-filter', 'material-filter-wrap']) {
   elements[id] = {
     attributes: {},
     classList: {toggle() {}},
@@ -22,10 +22,12 @@ const switchView = new Function('$', 'state', 'Option', 'render',
   id => elements[id], state, Option, () => {renders++;});
 switchView('gefahr');
 assert.equal(state.view, 'gefahr');
+assert.equal(elements['material-filter-wrap'].hidden,true);
 assert.equal(elements['view-gefahr'].attributes['aria-pressed'], 'true');
 assert.deepEqual(elements['hazard-filter'].options.map(x => x.value), ['', 'missing']);
 switchView('lager');
 assert.equal(elements['view-lager'].attributes['aria-pressed'], 'true');
+assert.equal(elements['material-filter-wrap'].hidden,false);
 assert.deepEqual(elements['hazard-filter'].options.map(x => x.value), ['', 'hazard', 'missing']);
 assert.equal(renders, 2);
 const matchingLine = source.split('\n').find(line => line.includes('const matching=state.products.filter'));

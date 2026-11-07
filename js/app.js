@@ -78,7 +78,7 @@ function render(){
     const places=el('div','card-locations');for(const s of p.stock.filter(s=>s.packs>0)){const place=state.locations.find(l=>l.id===s.location_id);places.append(el('span','place',`${place?.name||'?'}: ${format(s.packs)} Gebinde`))}if(!places.childElementCount)places.append(el('span','', 'Noch kein Bestand'));card.append(places);
     const actions=el('div','actions');
     if(state.permissions.stock)actions.append(button('Bestand ändern',()=>openStock(p)));
-    const mayEdit=state.permissions.editSafety||(state.permissions.editBasic&&!p.hazardous&&p.material_kind!=='chemical');
+    const mayEdit=state.permissions.editSafety||(state.permissions.editBasic&&!p.hazardous&&['consumable','other'].includes(p.material_kind));
     actions.append(button(mayEdit?'Bearbeiten':'Ansehen',()=>openProduct(p)));
     if(p.sds_review)details.append(el('span','badge'+(p.sds_review.status==='unclear'?' warn':''),sdsReviewLabel(p.sds_review.status)));
     if(p.sds_id){const link=el('a','', 'SDB herunterladen ↗');link.href=url(`/api/files/${p.sds_id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
@@ -101,7 +101,7 @@ function openProduct(p=null){
   $('source-result').hidden=true;$('source-result').replaceChildren();
   $('sds-research-result').hidden=true;$('sds-research-result').replaceChildren();
   const canSafety=!!state.permissions.editSafety;
-  const canEdit=canSafety||!!state.permissions.editBasic&&(!p||(!p.hazardous&&p.material_kind!=='chemical'));
+  const canEdit=canSafety||!!state.permissions.editBasic&&(!p||(!p.hazardous&&['consumable','other'].includes(p.material_kind)));
   $('dialog-title').textContent=p?(canEdit?'Produkt bearbeiten':'Produkt ansehen'):'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));

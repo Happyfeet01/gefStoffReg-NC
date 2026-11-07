@@ -29,6 +29,7 @@ declare(strict_types=1);
           <label class="search">Produkt suchen<input id="search" type="search" placeholder="Name, Hersteller, Artikelnummer …"></label>
           <label>Lagerort<select id="location-filter"><option value="">Alle Lagerorte</option></select></label>
           <label id="material-filter-wrap">Materialart<select id="material-filter"><option value="">Alle Materialarten</option><option value="chemical">Chemikalien</option><option value="consumable">Verbrauchsmaterial</option><option value="other">Sonstiges</option><option value="unclassified">Noch nicht zugeordnet</option></select></label>
+          <label>Kategorie<select id="category-filter"><option value="">Alle Kategorien</option></select></label>
           <label>Ansicht<select id="hazard-filter"><option value="">Alle Produkte</option><option value="hazard">Gefahrstoffe</option><option value="missing">Gefahrstoffe ohne SDB</option></select></label>
         </div>
         <div id="product-list" class="product-list"></div><p id="empty" class="empty">Bestand wird geladen …</p>

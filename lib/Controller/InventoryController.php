@@ -201,7 +201,7 @@ class InventoryController extends Controller {
 
     // Preserve every safety field (including unknown future fields) on restricted updates.
     private static function stockEditorUpdate(array $existing, array $next): ?array {
-        if (!empty($existing['hazardous']) || ($existing['material_kind'] ?? '') === 'chemical'
+        if (!empty($existing['hazardous']) || !in_array($existing['material_kind'] ?? 'unclassified', ['consumable', 'other'], true)
             || !in_array($next['material_kind'], ['consumable', 'other'], true)) return null;
         foreach (['hazardous','ufi','classification','ghs','signal','h_statements','storage_note',
                   'source_url','sds_url','pmb_url','sds_date','checked_at'] as $field) {
@@ -752,7 +752,7 @@ class InventoryController extends Controller {
         if (!$this->access->canEditSafety()) {
             $product = json_decode($record['details'], true);
             if ($kind !== 'photo' || !is_array($product) || !empty($product['hazardous'])
-                || ($product['material_kind'] ?? '') === 'chemical') return $this->denied();
+                || !in_array($product['material_kind'] ?? 'unclassified', ['consumable', 'other'], true)) return $this->denied();
         }
         $draftToken = (string)$this->request->getParam('draft_token', '');
         if ($kind === 'sds' && $draftToken !== '') {

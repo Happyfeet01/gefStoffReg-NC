@@ -7,9 +7,13 @@ declare(strict_types=1);
       <div class="brand"><span class="app-symbol" aria-hidden="true">◇</span><div><strong>Gefahrstoffkataster</strong><span>Produkte, Sicherheitsdatenblätter und Bestand</span></div></div>
       <div class="toolbar"><a id="export-xlsx" class="secondary">Excel exportieren</a><a id="export-csv" class="text-link">CSV</a></div>
     </header>
+    <nav class="mode-switch" aria-label="Bereich auswählen">
+      <button id="view-lager" type="button" class="is-active" aria-pressed="true">Lager</button>
+      <button id="view-gefahr" type="button" aria-pressed="false">Gefahrstoffkataster</button>
+    </nav>
     <main>
       <section class="hero">
-        <div><p class="eyebrow">INVENTAR</p><h1>Dein Bestand im Überblick</h1><p>Produkte erfassen, Sicherheitsdatenblätter prüfen und Mengen je Lagerort verwalten.</p></div>
+        <div><p class="eyebrow">INVENTAR</p><h1 id="view-title">Dein Bestand im Überblick</h1><p id="view-description">Produkte erfassen, Sicherheitsdatenblätter prüfen und Mengen je Lagerort verwalten.</p></div>
         <button id="new-product" type="button" class="primary">+ Produkt erfassen</button>
       </section>
       <div id="load-error" role="alert" hidden><p id="load-error-text"></p><button id="retry-load" type="button">Erneut laden</button></div>
@@ -20,7 +24,7 @@ declare(strict_types=1);
         <div><span>Lagerorte</span><strong id="count-locations">–</strong></div>
       </section>
       <section class="workspace" aria-labelledby="inventory-title">
-        <div class="section-head"><div><h2 id="inventory-title">Produkte &amp; Bestand</h2><p class="hint">Suche nach Produkt, Hersteller, Artikelnummer oder EAN.</p></div><button id="add-location" type="button" class="secondary">Lagerort hinzufügen</button></div>
+        <div class="section-head"><div><h2 id="inventory-title">Produkte &amp; Bestand</h2><p id="inventory-hint" class="hint">Suche nach Produkt, Hersteller, Artikelnummer oder EAN.</p></div><button id="add-location" type="button" class="secondary">Lagerort hinzufügen</button></div>
         <div class="filters">
           <label class="search">Produkt suchen<input id="search" type="search" placeholder="Name, Hersteller, Artikelnummer …"></label>
           <label>Lagerort<select id="location-filter"><option value="">Alle Lagerorte</option></select></label>

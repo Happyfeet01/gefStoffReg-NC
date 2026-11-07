@@ -28,6 +28,7 @@ declare(strict_types=1);
         <div class="filters">
           <label class="search">Produkt suchen<input id="search" type="search" placeholder="Name, Hersteller, Artikelnummer …"></label>
           <label>Lagerort<select id="location-filter"><option value="">Alle Lagerorte</option></select></label>
+          <label id="material-filter-wrap">Materialart<select id="material-filter"><option value="">Alle Materialarten</option><option value="chemical">Chemikalien</option><option value="consumable">Verbrauchsmaterial</option><option value="other">Sonstiges</option><option value="unclassified">Noch nicht zugeordnet</option></select></label>
           <label>Ansicht<select id="hazard-filter"><option value="">Alle Produkte</option><option value="hazard">Gefahrstoffe</option><option value="missing">Gefahrstoffe ohne SDB</option></select></label>
         </div>
         <div id="product-list" class="product-list"></div><p id="empty" class="empty">Bestand wird geladen …</p>
@@ -60,6 +61,7 @@ declare(strict_types=1);
               <label class="full">EAN / GTIN<div class="input-row"><input name="ean" maxlength="50" inputmode="numeric"><button id="scan-button" type="button" class="secondary">Scannen</button><button id="lookup-button" type="button" class="secondary">Im Bestand suchen</button></div></label>
               <div class="full lookup-tools"><button id="label-button" type="button" class="secondary">Etikett fotografieren</button><input id="label-input" type="file" accept="image/*" capture="environment" hidden></div>
               <div id="lookup-result" class="lookup-result full" role="status" hidden></div>
+              <label>Materialart<select name="material_kind"><option value="unclassified">Noch nicht zugeordnet</option><option value="chemical">Chemikalien</option><option value="consumable">Verbrauchsmaterial</option><option value="other">Sonstiges Material</option></select><small>Unabhängig von der Gefahrstoffkennzeichnung.</small></label>
               <label>Kategorie<input name="category" maxlength="80" placeholder="z. B. Reinigung"></label>
               <label>Einsatzbereich<input name="use_area" maxlength="100" placeholder="z. B. Schwimmbecken"></label>
               <label>Gebindegröße<input name="pack_size" type="number" min="0.001" max="1000000" step="any" required></label>

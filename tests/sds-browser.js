@@ -40,6 +40,13 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
       });
       await page.goto('https://gsk.test/');
       await page.getByRole('button',{name:'Bearbeiten',exact:true}).waitFor();
+      // The two menu views share records; non-hazardous products are omitted only from the kataster.
+      await page.getByRole('button',{name:'Gefahrstoffkataster',exact:true}).click();
+      assert.equal(await page.locator('#view-gefahr').getAttribute('aria-pressed'),'true');
+      assert.equal(await page.locator('.card').count(),0,'Non-hazardous product was shown in the kataster');
+      await page.getByRole('button',{name:'Lager',exact:true}).click();
+      assert.equal(await page.locator('#view-lager').getAttribute('aria-pressed'),'true');
+      assert.equal(await page.locator('.card').count(),1,'Product disappeared from the common inventory');
       const actionLines=await page.locator('.card .actions').evaluate(container=>[...container.children].map(node=>{
         const range=document.createRange();range.selectNodeContents(node);
         const box=node.getBoundingClientRect(),text=range.getBoundingClientRect(),style=getComputedStyle(node);

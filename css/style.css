@@ -169,6 +169,7 @@
 }
 @media(max-width:720px) {
   #gsk-app .topbar {padding:16px;flex-wrap:wrap}
+  #gsk-app .toolbar {flex-wrap:wrap}
   #gsk-app .mode-switch {padding:10px 16px;gap:6px}
   #gsk-app .mode-switch button {flex:1;min-width:0;padding:10px 6px;font-size:13px}
   #gsk-app .brand span:not(.app-symbol) {display:none}

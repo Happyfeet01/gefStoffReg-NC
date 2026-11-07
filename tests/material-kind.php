@@ -10,8 +10,8 @@ namespace {
     if ($legacy['material_kind'] !== 'unclassified') throw new RuntimeException('Legacy products must stay unclassified');
     $consumable = $validate->invoke($controller, $base + ['material_kind'=>'consumable']);
     if ($consumable['material_kind'] !== 'consumable' || $consumable['hazardous']) throw new RuntimeException('Consumable was misclassified');
-    $hazard = $validate->invoke($controller, ['material_kind'=>'chemical'] + $base + ['hazardous'=>true]);
-    if ($hazard['material_kind'] !== 'chemical') throw new RuntimeException('Chemical category not preserved');
+    $hazard = $validate->invoke($controller, array_replace($base, ['material_kind'=>'chemical', 'hazardous'=>true]));
+    if ($hazard['material_kind'] !== 'chemical' || !$hazard['hazardous']) throw new RuntimeException('Chemical category not preserved');
     // Safety labels are an independent field, never silently derived from material kind.
     $flagged = $validate->invoke($controller, array_replace($base, ['material_kind'=>'consumable', 'hazardous'=>true]));
     if (!$flagged['hazardous']) throw new RuntimeException('Hazard marking was silently cleared');

@@ -32,7 +32,7 @@ const analysis={status:'classified',filename:'SDB-2026-10-15.pdf',sha256:'a'.rep
           window.testCamera={starts:0,stops:0,permissions:0};
           navigator.mediaDevices.getUserMedia=async()=>{window.testCamera.permissions++;return new MediaStream()};
           window.GefahrstoffScanner={start:async(video)=>{window.testCamera.starts++;video.srcObject=await navigator.mediaDevices.getUserMedia({video:true});return {stop:async()=>{window.testCamera.stops++}}}};`,'application/javascript');
-        if(pathname.endsWith('/api/bootstrap'))return fulfill({products:[product],locations:[{id:1,name:'Chemieraum'}]});
+        if(pathname.endsWith('/api/bootstrap'))return fulfill({products:[product],locations:[{id:1,name:'Chemieraum'}],permissions:{role:'manager',read:true,stock:true,editBasic:true,editSafety:true,manage:true}});
         if(pathname.endsWith('/api/sds-analysis')){analyzed++;return fulfill(toolFailure?{...analysis,status:'unclear',suggestions:[],evidence:[],extraction_error:'tools missing',notice:'PDF lokal geladen; Textauswertung nicht verfügbar.'}:analysis)}
         if(pathname.endsWith('/api/products/1/files')){attached++;assert.match(route.request().postData(),/draft_token/);return fulfill({id:19},'application/json',201)}
         if(pathname.endsWith('/api/products/1')){const match=route.request().postData().match(/name="payload"\r\n\r\n([^\r]*)/);saved=JSON.parse(match[1]);return fulfill({id:1})}

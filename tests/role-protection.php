@@ -24,5 +24,6 @@ namespace {
         if ($update->invoke(null, $original, array_replace($changed, $changes)) !== null) throw new \RuntimeException('Safety change was accepted');
     }
     if ($update->invoke(null, array_replace($base, ['hazardous'=>true]), $changed) !== null) throw new \RuntimeException('Stock editor changed hazardous product');
+    if ($update->invoke(null, array_replace($base, ['material_kind'=>'unclassified']), $changed) !== null) throw new \RuntimeException('Unverified legacy product was editable');
     echo "Stock-editor safe fields and protected safety metadata passed\n";
 }

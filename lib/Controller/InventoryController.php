@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace OCA\Gefahrstoffkataster\Controller;
 
 use OCA\Gefahrstoffkataster\Service\ApiKeyService;
+use OCA\Gefahrstoffkataster\Service\AccessPolicy;
 use OCA\Gefahrstoffkataster\Service\ResearchResponse;
 use OCA\Gefahrstoffkataster\Service\SdsAnalysis;
 use OCA\Gefahrstoffkataster\Service\SdsTextExtractor;
@@ -23,7 +24,6 @@ use OCP\DB\Exception as DatabaseException;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Http\Client\IClientService;
 use OCP\IDBConnection;
-use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
@@ -32,7 +32,6 @@ use OCP\Security\IRemoteHostValidator;
 use Psr\Log\LoggerInterface;
 
 class InventoryController extends Controller {
-    private const GROUP = 'freibad-gefahrstoffe';
     private const TEXT = [
         'name' => 160, 'manufacturer' => 120, 'article' => 100, 'ean' => 50,
         'ufi' => 80, 'category' => 80, 'use_area' => 100, 'unit' => 20,
@@ -51,7 +50,7 @@ class InventoryController extends Controller {
         private IDBConnection $db,
         private IAppData $appData,
         private IUserSession $session,
-        private IGroupManager $groups,
+        private AccessPolicy $access,
         private IURLGenerator $urls,
         private LoggerInterface $logger,
         private IClientService $clientService,
@@ -91,12 +90,11 @@ class InventoryController extends Controller {
     }
 
     private function permitted(): bool {
-        $user = $this->session->getUser();
-        return $user !== null && ($this->groups->isAdmin($user->getUID()) || $this->groups->isInGroup($user->getUID(), self::GROUP));
+        return $this->access->canRead();
     }
 
     private function denied(): DataResponse {
-        return new DataResponse(['error' => 'Zugriff nur für Mitglieder von ' . self::GROUP . '.'], Http::STATUS_FORBIDDEN);
+        return new DataResponse(['error' => 'Keine Berechtigung für diese Aktion.'], Http::STATUS_FORBIDDEN);
     }
 
     private function fail(string $message, int $status = Http::STATUS_BAD_REQUEST): DataResponse {
@@ -191,6 +189,73 @@ class InventoryController extends Controller {
         return $data;
     }
 
+    // Stock editors may only create standard consumables or other material without safety metadata.
+    private static function stockEditorMayCreate(array $data): bool {
+        if (!empty($data['hazardous']) || !in_array($data['material_kind'], ['consumable', 'other'], true)
+            || isset($data['sds_review'])) return false;
+        foreach (['ufi','classification','ghs','signal','h_statements','storage_note','source_url','sds_url','pmb_url','sds_date','checked_at'] as $field) {
+            if (($data[$field] ?? '') !== '') return false;
+        }
+        return true;
+    }
+
+    // Preserve every safety field (including unknown future fields) on restricted updates.
+    private static function stockEditorUpdate(array $existing, array $next): ?array {
+        if (!empty($existing['hazardous']) || ($existing['material_kind'] ?? '') === 'chemical'
+            || !in_array($next['material_kind'], ['consumable', 'other'], true)) return null;
+        foreach (['hazardous','ufi','classification','ghs','signal','h_statements','storage_note',
+                  'source_url','sds_url','pmb_url','sds_date','checked_at'] as $field) {
+            $before = $existing[$field] ?? ($field === 'hazardous' ? false : '');
+            if (($next[$field] ?? null) !== $before) return null;
+        }
+        if (isset($next['sds_review']) && $next['sds_review'] !== ($existing['sds_review'] ?? null)) return null;
+        foreach (['name','manufacturer','article','ean','category','use_area','pack_size','unit','material_kind'] as $key) {
+            $existing[$key] = $next[$key];
+        }
+        return $existing;
+    }
+
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function shares(): DataResponse {
+        if (!$this->access->canManage()) return $this->denied();
+        return new DataResponse($this->access->listing());
+    }
+
+    #[NoAdminRequired]
+    public function saveShare(): DataResponse {
+        if (!$this->access->canManage()) return $this->denied();
+        try {
+            $input = $this->payload();
+            $result = $this->access->change('grant', (string)($input['type'] ?? ''), (string)($input['id'] ?? ''),
+                is_string($input['role'] ?? null) ? $input['role'] : null, (string)($input['revision'] ?? ''));
+            $this->logger->info('Gefahrstoffkataster: Freigabe geändert.', ['actor' => $this->session->getUser()->getUID(),
+                'target_type' => (string)$input['type'], 'target' => (string)$input['id'], 'role' => (string)$input['role']]);
+            return new DataResponse($result);
+        } catch (\RuntimeException $e) {
+            return $this->fail($e->getMessage(), Http::STATUS_CONFLICT);
+        } catch (\InvalidArgumentException|\DomainException|\JsonException|\TypeError $e) {
+            return $this->fail($e->getMessage(), $e instanceof \DomainException ? Http::STATUS_FORBIDDEN : Http::STATUS_BAD_REQUEST);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function revokeShare(): DataResponse {
+        if (!$this->access->canManage()) return $this->denied();
+        try {
+            $input = $this->payload();
+            $result = $this->access->change('revoke', (string)($input['type'] ?? ''), (string)($input['id'] ?? ''),
+                null, (string)($input['revision'] ?? ''));
+            $this->logger->info('Gefahrstoffkataster: Freigabe entzogen.', ['actor' => $this->session->getUser()->getUID(),
+                'target_type' => (string)$input['type'], 'target' => (string)$input['id']]);
+            return new DataResponse($result);
+        } catch (\RuntimeException $e) {
+            return $this->fail($e->getMessage(), Http::STATUS_CONFLICT);
+        } catch (\InvalidArgumentException|\DomainException|\JsonException|\TypeError $e) {
+            return $this->fail($e->getMessage(), $e instanceof \DomainException ? Http::STATUS_FORBIDDEN : Http::STATUS_BAD_REQUEST);
+        }
+    }
+
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function index(): Response {
@@ -209,14 +274,7 @@ class InventoryController extends Controller {
     public function bootstrap(): DataResponse {
         if (!$this->permitted()) return $this->denied();
         try {
-            if (!$this->rows('gsk_location')) {
-                foreach (['Chemieraum','Putzraum','Werkstatt','Technikkeller NSB','Technikkeller SB'] as $name) {
-                    try { $this->insertRow('gsk_location', ['name' => $name]); }
-                    catch (DatabaseException $e) {
-                        if ($e->getReason() !== DatabaseException::REASON_UNIQUE_CONSTRAINT_VIOLATION) throw $e;
-                    }
-                }
-            }
+            // Read endpoints must never initialize or modify inventory records.
             $products = [];
             foreach ($this->rows('gsk_product') as $row) {
                 $data = json_decode($row['details'], true);
@@ -237,7 +295,7 @@ class InventoryController extends Controller {
                 if ($row['kind'] === 'sds') $products[$row['product_id']]['sds_id'] = max($products[$row['product_id']]['sds_id'] ?? 0, (int)$row['id']);
             }
             $locations = array_map(static fn(array $row): array => ['id' => (int)$row['id'], 'name' => $row['name']], $this->rows('gsk_location'));
-            return new DataResponse(['products' => array_values($products), 'locations' => $locations]);
+            return new DataResponse(['products' => array_values($products), 'locations' => $locations, 'permissions' => $this->access->capabilities()]);
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Produktdaten konnten nicht geladen werden.', ['exception' => $e]);
             return $this->fail('Daten konnten nicht geladen werden.', 500);
@@ -510,7 +568,7 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function addLocation(): DataResponse {
-        if (!$this->permitted()) return $this->denied();
+        if (!$this->access->canManage()) return $this->denied();
         try {
             $name = $this->payload()['name'] ?? null;
             if (!is_string($name) || mb_strlen(trim($name)) < 1 || mb_strlen(trim($name)) > 80) throw new \InvalidArgumentException('Bitte einen Lagerort mit 1 bis 80 Zeichen eingeben.');
@@ -537,9 +595,10 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function saveProduct(): DataResponse {
-        if (!$this->permitted()) return $this->denied();
+        if (!$this->access->canEditBasic()) return $this->denied();
         try {
             $data = $this->validateProduct($this->payload());
+            if (!$this->access->canEditSafety() && !self::stockEditorMayCreate($data)) return $this->denied();
             $time = gmdate('c');
             $id = $this->insertRow('gsk_product', ['details' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'created_at' => $time, 'updated_at' => $time]);
             return new DataResponse(['id' => $id], 201);
@@ -550,10 +609,17 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function updateProduct(int $id): DataResponse {
-        if (!$this->permitted()) return $this->denied();
-        if (!$this->one('gsk_product', $id)) return $this->fail('Produkt nicht gefunden.', 404);
+        if (!$this->access->canEditBasic()) return $this->denied();
+        $record = $this->one('gsk_product', $id);
+        if (!$record) return $this->fail('Produkt nicht gefunden.', 404);
         try {
             $data = $this->validateProduct($this->payload());
+            if (!$this->access->canEditSafety()) {
+                $original = json_decode($record['details'], true);
+                if (!is_array($original)) return $this->fail('Gespeicherte Produktdaten sind ungültig.', 409);
+                $data = self::stockEditorUpdate($original, $data);
+                if ($data === null) return $this->denied();
+            }
             $qb = $this->db->getQueryBuilder();
             $qb->update('gsk_product')
                 ->set('details', $qb->createNamedParameter(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)))
@@ -568,7 +634,7 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function adjustStock(): DataResponse {
-        if (!$this->permitted()) return $this->denied();
+        if (!$this->access->canChangeStock()) return $this->denied();
         try {
             $input = $this->payload();
             $pid = filter_var($input['product_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -613,7 +679,7 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function analyzeSds(): DataResponse {
-        if (!$this->permitted()) return $this->denied();
+        if (!$this->access->canEditSafety()) return $this->denied();
         try {
             $draftToken = null;
             $sourceUrl = trim((string)$this->request->getParam('source_url', ''));
@@ -678,10 +744,16 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function upload(int $id): DataResponse {
-        if (!$this->permitted()) return $this->denied();
-        if (!$this->one('gsk_product', $id)) return $this->fail('Produkt nicht gefunden.', 404);
+        if (!$this->access->canEditBasic()) return $this->denied();
+        $record = $this->one('gsk_product', $id);
+        if (!$record) return $this->fail('Produkt nicht gefunden.', 404);
         $upload = $this->request->getUploadedFile('file');
         $kind = $this->request->getParam('kind');
+        if (!$this->access->canEditSafety()) {
+            $product = json_decode($record['details'], true);
+            if ($kind !== 'photo' || !is_array($product) || !empty($product['hazardous'])
+                || ($product['material_kind'] ?? '') === 'chemical') return $this->denied();
+        }
         $draftToken = (string)$this->request->getParam('draft_token', '');
         if ($kind === 'sds' && $draftToken !== '') {
             try {

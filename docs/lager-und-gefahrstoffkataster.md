@@ -68,3 +68,37 @@ Vorgeschlagene Fähigkeiten:
 5. Schema und Rechte gestaffelt ausrollen; Release-Version erst erhöhen, wenn die jeweiligen Funktionen fertig und getestet sind.
 
 **Nicht Gegenstand des ersten PRs:** neue Datenbanktabellen, neue Nutzerrechte, Materialtyp-Migration, produktiver Audit-Endpunkt oder automatische Bestandsänderungen.
+
+
+## Implementierungsstand: Freigaben, erster Schritt (#7)
+
+**Status:** Entwicklungsbranch, noch nicht in `main`. Freigaben gelten zunächst **instanzweit** für alle Produkte und Lagerorte dieser App; *keine* Standort-Einschränkungen oder freigegebenen Teilmengen. Diese folgen nach separater Daten- und Berechtigungsprüfung.
+
+- Verwalter öffnen im Kopfbereich **Freigaben**, geben eine existierende Nextcloud-Benutzer- oder Gruppen-ID ein und wählen **Lesen**, **Lager bearbeiten**, **Gefahrstoffdaten bearbeiten** oder **Verwalten**.
+- Die Server-API prüft die Rolle **für jede schreibende Route**. Browserseitig deaktivierte Eingaben sind nur Komfort, keine Zugriffskontrolle.
+- **Lesen:** Produktlisten, Bestand, SDB, Dateidownload und Export; keine Bestands-, Produkt- oder Freigabeänderungen.
+- **Lager bearbeiten:** Bestand buchen sowie neue Produkte der Arten Verbrauchsmaterial/Sonstiges erfassen. Bereits korrekt zugeordnetes, **nicht als Gefahrstoff markiertes** Material darf in nicht sicherheitsrelevanten Stammdaten gepflegt und mit Fotos versehen werden. Gefahrstoffe, Chemikalien und ungeklärte Altprodukte bleiben in dieser Rolle unveränderbar. Keine SDB-/GHS-/UFI-Änderungen.
+- **Gefahrstoffdaten bearbeiten:** Produkt- und Sicherheitsdaten, Dokumente und Bestände bearbeiten; keine Freigaben.
+- **Verwalten:** sämtliche Produkt- und Bestandsrechte sowie Freigaben und neue Lagerorte.
+- Nextcloud-Administratoren bleiben Verwalter. Die **bestehende Gruppe `freibad-gefahrstoffe`** behält ihre früheren vollen Rechte; die Freigabemaske kann diese Gruppe selbst nicht verwalten. Eine explizite Benutzerfreigabe setzt bei einem betroffenen Benutzer die Gruppenrolle außer Kraft (z. B. Leser trotz alter Gruppenzugehörigkeit).
+- Freigaben werden als App-Konfiguration `shares_v1` gespeichert; zum Bearbeiten wird der vorherige Stand mit einer Revisions-Prüfsumme geprüft. **Keine DB-Migration** und kein Kopieren der Bestandsdaten. Rollen entziehen wirkt bei der nächsten Serveranfrage.
+- Der lesende `/api/bootstrap`-Aufruf legt bei leerer Lagerorttabelle keine Lagerorte mehr automatisch an. Auf frischen Installationen müssen Verwalter daher Lagerorte manuell erfassen.
+- Änderungen an Freigaben werden im Nextcloud-Log mit Akteur und Ziel protokolliert. Ein revisionssicheres fachliches Produkt-Änderungsprotokoll und **Standortrechte** bleiben separat offen.
+- Die geplante automatisierte ChatGPT-Qualitätsprüfung benötigt weiterhin eine **eigene lesende Anbindung an die Gefahrstoffkataster-API**. Allein eine Freigabe im Benutzerkonto reicht für den vorhandenen Nextcloud-MCP nicht aus.
+
+### Vor der Übernahme testen
+
+```sh
+php -l lib/Service/AccessPolicy.php
+php -l lib/Controller/InventoryController.php
+php tests/access-policy.php
+php tests/role-protection.php
+php tests/material-kind.php
+php tests/sds-product.php
+node --check js/app.js
+node tests/inventory-navigation.js
+# sofern Playwright/Chromium vorhanden:
+node tests/sds-browser.js
+```
+
+Mit **separaten Testkonten** prüfen: Leser sieht Daten und Export, kann direkte Schreib-URLs nicht verwenden; Lagerbearbeiter darf Verbrauchsmaterial buchen und bearbeiten, jedoch keine SDB/GHS/UFI ändern; Gefahrstoffbearbeiter darf fachliche Felder bearbeiten; nur Verwalter darf Freigaben ändern. Danach Benutzerfreigabe entziehen und direkte API-Aufrufe erneut auf HTTP 403 prüfen. Die alte Gruppe in Nextcloud unverändert lassen, solange ihre Mitglieder keine expliziten Einzelrechte erhalten.

@@ -15,13 +15,28 @@
     if(value!==undefined)node.textContent=String(value);
     return node;
   };
-  const formData=()=>{const data=new FormData();data.set('password',password);return data;};
-  async function authenticatedFetch(url){
-    const response=await fetch(url,{method:'POST',body:formData(),credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer'});
+  // Nextcloud's IRequest reliably parses application/x-www-form-urlencoded POST data.
+  // Keep requests same-origin so a link cannot redirect the password elsewhere.
+  async function authenticatedFetch(endpoint){
+    const target=new URL(endpoint,window.location.href);
+    if(target.origin!==window.location.origin)throw new Error('Ungültiger Freigabe-Endpunkt.');
+    const response=await fetch(target.href,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
+        'Accept':'application/json, application/pdf',
+      },
+      body:new URLSearchParams({password}),
+      credentials:'same-origin',
+      redirect:'error',
+      cache:'no-store',
+      referrerPolicy:'no-referrer',
+    });
     if(!response.ok){
-      let message='Freigabe nicht verfügbar oder Passwort ungültig.';
-      try{const data=await response.json();message=data.error||message}catch{}
-      throw new Error(message);
+      if(response.status===429)throw new Error('Zu viele Versuche. Bitte später erneut probieren.');
+      if(response.status===403)throw new Error('Zugriff verweigert (HTTP 403). Bitte die Freigabe erneut öffnen.');
+      if(response.status===404)throw new Error('Link nicht verfügbar oder Passwort falsch (HTTP 404).');
+      throw new Error('Abruf fehlgeschlagen (HTTP '+response.status+').');
     }
     return response;
   }
@@ -82,6 +97,14 @@
     }
     return card;
   }
+  $('external-password-toggle').addEventListener('click',()=>{
+    const field=$('external-password'),button=$('external-password-toggle');
+    const visible=field.type==='password';
+    field.type=visible?'text':'password';
+    button.textContent=visible?'Verbergen':'Anzeigen';
+    button.setAttribute('aria-pressed',String(visible));
+    button.setAttribute('aria-label',visible?'Passwort verbergen':'Passwort anzeigen');
+  });
   $('external-unlock').addEventListener('submit',async event=>{
     event.preventDefault();
     const button=event.currentTarget.querySelector('button');
@@ -100,6 +123,8 @@
       $('external-empty').hidden=products.length>0;
       $('external-content').hidden=false;
       $('external-password').value='';
+      $('external-password').type='password';
+      $('external-password-toggle').setAttribute('aria-pressed','false');
       $('external-auth').hidden=true;
     }catch(error){$('external-error').textContent=error.message;$('external-error').hidden=false;$('external-content').hidden=true}
     finally{button.disabled=false}

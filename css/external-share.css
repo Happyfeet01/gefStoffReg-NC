@@ -1,26 +1,198 @@
-#gsk-external {max-width:1060px;margin:30px auto 70px;padding:0 24px;color:var(--color-main-text,#1e293b)}
-#gsk-external .external-head {padding:24px 0 18px;border-bottom:1px solid var(--color-border,#ddd)}
-#gsk-external .external-eyebrow {font-size:12px;letter-spacing:.11em;font-weight:700;text-transform:uppercase;opacity:.7}
-#gsk-external h1 {font-size:clamp(26px,4vw,38px);line-height:1.2;margin:10px 0}
-#gsk-external .external-auth {margin:22px 0}
-#gsk-external #external-unlock {display:flex;align-items:end;flex-wrap:wrap;gap:10px}
-#gsk-external #external-unlock label {width:100%;font-weight:600}
-#gsk-external #external-password {min-width:260px;min-height:42px;border:1px solid var(--color-border,#aaa);border-radius:8px;padding:8px 12px}
-#gsk-external button {background:var(--color-primary-element,#00679e);color:var(--color-primary-element-text,#fff);border:0;border-radius:8px;min-height:42px;padding:8px 16px;cursor:pointer}
-#gsk-external button:disabled {opacity:.5;cursor:not-allowed}
-#gsk-external #external-error {color:var(--color-error,#ae1c20);margin-top:10px}
-#gsk-external .external-summary {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin:20px 0}
-#gsk-external .external-summary h2 {font-size:23px;margin:0 0 5px}
-#gsk-external .external-summary p,#gsk-external .external-muted,#gsk-external .external-footnote {opacity:.7}
-#gsk-external .external-products {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:16px}
-#gsk-external .external-card {border:1px solid var(--color-border,#ddd);border-radius:12px;padding:20px;overflow-wrap:anywhere;background:var(--color-main-background,#fff)}
-#gsk-external .external-card h3 {margin:0 0 6px;font-size:19px}
-#gsk-external .external-badge {display:inline-block;padding:4px 9px;background:var(--color-background-dark,#eee);border-radius:100px;font-size:12px;font-weight:700}
-#gsk-external .external-stock {margin-top:15px;padding:10px;border-radius:8px;background:var(--color-background-hover,#f5f5f5)}
-#gsk-external .external-stock p {margin:6px 0 0;font-size:13px}
-#gsk-external .external-safety {margin:14px 0 0}
-#gsk-external .external-safety dt {font-size:12px;font-weight:700;opacity:.75}
-#gsk-external .external-safety dd {margin:0 0 10px;white-space:pre-wrap;line-height:1.45}
-#gsk-external .external-actions {display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:15px}
-#gsk-external a.external-link {text-decoration:underline}
-#gsk-external .external-footnote {margin:28px 0;font-size:12px}
+/* Only the external-share view loads this file. Do not change other Nextcloud public pages. */
+body#body-public {
+  margin:0 !important;
+  background:#f5f7fb !important;
+  background-image:none !important;
+  color:#172b42 !important;
+  min-height:100dvh;
+  overflow-x:hidden;
+  overflow-y:auto !important;
+}
+body#body-public > #header,
+body#body-public > footer.guest-box {display:none !important}
+body#body-public #content.app-gefahrstoffkataster {
+  display:block !important;
+  position:static !important;
+  inset:auto !important;
+  height:auto !important;
+  min-height:100dvh !important;
+  width:100% !important;
+  max-width:none !important;
+  overflow:visible !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+#gsk-external {
+  --gsk-ink:#172b42;
+  --gsk-muted:#61728a;
+  --gsk-border:#e2e8f0;
+  --gsk-primary:#206a83;
+  box-sizing:border-box;
+  width:100%;
+  max-width:none;
+  min-height:100dvh;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  color:var(--gsk-ink);
+  font:400 15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  text-align:left;
+  background:#f5f7fb;
+}
+#gsk-external *,#gsk-external *::before,#gsk-external *::after {box-sizing:border-box}
+#gsk-external [hidden] {display:none !important}
+#gsk-external .external-topbar {
+  width:100%;min-height:76px;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  padding:16px max(24px,calc((100vw - 1120px)/2));
+  background:#fff;border-bottom:1px solid var(--gsk-border);
+}
+#gsk-external .external-brand {display:flex;align-items:center;gap:12px;min-width:0}
+#gsk-external .external-brand-icon {
+  width:42px;height:42px;flex:none;border-radius:13px;
+  display:grid;place-items:center;background:#e9f3f7;color:var(--gsk-primary);
+}
+#gsk-external .external-brand-icon svg {width:25px;height:25px}
+#gsk-external .external-brand strong {display:block;font-size:15px;font-weight:750;line-height:1.3;color:var(--gsk-ink)}
+#gsk-external .external-brand small {display:block;font-size:12px;color:var(--gsk-muted)}
+#gsk-external .external-readonly-pill {
+  flex:none;padding:7px 11px;border:1px solid #dce9e9;border-radius:100px;
+  background:#f1f7f7;color:#376878;font-size:12px;font-weight:700;
+}
+#gsk-external .external-page {
+  width:100%;max-width:1100px;flex:1;
+  margin:0 auto;padding:clamp(28px,7vh,82px) 24px 52px;
+}
+#gsk-external .external-auth {
+  width:100%;max-width:520px;
+  padding:clamp(24px,4.5vw,42px);
+  margin:0 auto;
+  border-radius:20px;border:1px solid var(--gsk-border);
+  background:#fff;box-shadow:0 18px 55px rgba(26,45,73,.075),0 2px 5px rgba(26,45,73,.025);
+}
+#gsk-external .external-auth-icon {
+  width:54px;height:54px;display:grid;place-items:center;
+  border-radius:16px;color:var(--gsk-primary);background:#e9f3f7;margin-bottom:20px;
+}
+#gsk-external .external-auth-icon svg {width:28px;height:28px}
+#gsk-external .external-eyebrow {
+  margin:0 0 7px;color:var(--gsk-primary);text-transform:uppercase;
+  letter-spacing:.11em;font-size:11px;font-weight:800;
+}
+#gsk-external h1 {
+  font-size:clamp(26px,4.5vw,34px);
+  font-weight:750;letter-spacing:-.035em;line-height:1.2;
+  margin:0 0 12px;color:var(--gsk-ink);
+}
+#gsk-external .external-intro {
+  margin:0 0 28px;color:var(--gsk-muted);font-size:14px;line-height:1.65;
+}
+#gsk-external #external-unlock {display:flex;flex-direction:column;align-items:stretch;gap:0;margin:0}
+#gsk-external #external-unlock label {
+  margin:0 0 8px;display:block;width:100%;
+  color:var(--gsk-ink);font-size:13px;font-weight:700;
+}
+#gsk-external .external-optional {font-weight:450;color:var(--gsk-muted)}
+#gsk-external #external-password {
+  width:100%;min-width:0;height:48px;
+  padding:11px 14px;border:1px solid #cbd5e1;border-radius:11px;
+  background:#fff;color:var(--gsk-ink);font:inherit;font-size:16px;
+  box-shadow:none;outline:none;appearance:none;
+}
+#gsk-external #external-password:focus-visible {
+  outline:3px solid rgba(32,106,131,.18);outline-offset:1px;border-color:var(--gsk-primary);
+}
+#gsk-external #external-password::placeholder {color:#94a3b8}
+#gsk-external .external-field-hint {
+  font-size:12px;color:var(--gsk-muted);margin:9px 0 22px;
+}
+#gsk-external button {
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;
+  border:0;border-radius:11px;min-height:48px;
+  padding:12px 18px;background:var(--gsk-primary);color:#fff;
+  font:inherit;font-size:14px;font-weight:750;cursor:pointer;
+  transition:background .15s ease,box-shadow .15s ease;
+}
+#gsk-external button:hover {background:#15546a}
+#gsk-external button:focus-visible {outline:3px solid rgba(32,106,131,.3);outline-offset:3px}
+#gsk-external button:disabled {cursor:wait;opacity:.55}
+#gsk-external #external-unlock button {width:100%;justify-content:space-between}
+#gsk-external #external-unlock button span {font-size:21px;font-weight:400;line-height:1}
+#gsk-external #external-error {
+  margin:16px 0 0;padding:12px 14px;
+  border:1px solid #f4c7c7;border-radius:10px;
+  background:#fff5f5;color:#a92323;font-size:13px;
+}
+#gsk-external .external-privacy-note {
+  display:flex;align-items:center;gap:10px;
+  margin-top:26px;padding-top:20px;border-top:1px solid var(--gsk-border);
+  color:var(--gsk-muted);font-size:12px;
+}
+#gsk-external .external-privacy-note svg {width:19px;height:19px;flex:none;color:var(--gsk-primary)}
+#gsk-external #external-content {width:100%}
+#gsk-external .external-summary {
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:14px;margin:0 0 28px;padding:25px 28px;
+  background:#fff;border:1px solid var(--gsk-border);border-radius:16px;
+  box-shadow:0 3px 14px rgba(26,45,73,.035);
+}
+#gsk-external .external-summary h1 {margin:0 0 7px;font-size:clamp(24px,4vw,30px)}
+#gsk-external .external-summary p:not(.external-eyebrow) {margin:0;color:var(--gsk-muted);font-size:13px}
+#gsk-external .external-count {
+  padding:8px 13px;border-radius:9px;background:#e9f3f7;
+  color:var(--gsk-primary);font-size:13px;font-weight:750;
+}
+#gsk-external .external-products {
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;
+}
+#gsk-external .external-card {
+  min-width:0;background:#fff;border:1px solid var(--gsk-border);
+  border-radius:16px;padding:22px;
+  box-shadow:0 3px 14px rgba(26,45,73,.035);overflow-wrap:anywhere;
+}
+#gsk-external .external-card h3 {margin:0 0 8px;font-size:17px;font-weight:750;color:var(--gsk-ink);line-height:1.35}
+#gsk-external .external-muted {margin:0 0 14px;color:var(--gsk-muted);font-size:12px}
+#gsk-external .external-badge {
+  display:inline-block;padding:5px 10px;background:#fff1e6;color:#91521e;
+  border:1px solid #ffe1c4;border-radius:99px;font-size:11px;font-weight:750;
+}
+#gsk-external .external-stock {margin-top:18px;padding:15px;border-radius:10px;background:#f5f7fb}
+#gsk-external .external-stock strong {display:block;font-size:20px;color:var(--gsk-ink)}
+#gsk-external .external-stock p {margin:6px 0 0;font-size:12px;color:var(--gsk-muted)}
+#gsk-external .external-safety {margin:18px 0 0}
+#gsk-external .external-safety dt {font-size:11px;font-weight:750;color:var(--gsk-muted);text-transform:uppercase;letter-spacing:.03em}
+#gsk-external .external-safety dd {margin:0 0 12px;white-space:pre-wrap;line-height:1.5;font-size:13px}
+#gsk-external .external-actions {display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:18px}
+#gsk-external .external-actions button {min-height:42px;font-size:12px;padding:9px 14px}
+#gsk-external .external-actions a {color:var(--gsk-primary);text-decoration:underline;text-underline-offset:3px}
+#gsk-external .external-empty {
+  padding:28px;text-align:center;color:var(--gsk-muted);
+  border:1px dashed #cbd5e1;border-radius:14px;background:#fff;
+}
+#gsk-external .external-footnote {margin:28px 0;color:var(--gsk-muted);font-size:12px}
+#gsk-external .external-page-footer {
+  width:100%;padding:22px max(24px,calc((100vw - 1120px)/2));
+  display:flex;gap:14px;justify-content:space-between;flex-wrap:wrap;
+  border-top:1px solid var(--gsk-border);font-size:12px;color:var(--gsk-muted);background:#fff;
+}
+@media (max-width:600px) {
+  #gsk-external .external-topbar {min-height:66px;padding:12px 18px}
+  #gsk-external .external-brand-icon {width:38px;height:38px;border-radius:11px}
+  #gsk-external .external-brand strong {font-size:13px}
+  #gsk-external .external-brand small {font-size:11px}
+  #gsk-external .external-readonly-pill {font-size:10px;padding:6px 9px}
+  #gsk-external .external-page {padding:28px 16px 42px}
+  #gsk-external .external-auth {padding:26px 22px;border-radius:17px}
+  #gsk-external .external-summary {padding:23px 20px}
+  #gsk-external .external-products {grid-template-columns:minmax(0,1fr);gap:12px}
+  #gsk-external .external-card {padding:20px}
+  #gsk-external .external-page-footer {padding:18px;gap:6px;font-size:11px}
+}
+@media (prefers-reduced-motion:reduce) {
+  #gsk-external button {transition:none}
+}

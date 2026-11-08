@@ -15,6 +15,7 @@ return ['routes' => [
     // Public token view; data and PDF requests are POST-only and recheck password, scope and expiry.
     ['name' => 'external_share#view', 'url' => '/shared/{token}', 'verb' => 'GET'],
     ['name' => 'external_share#read', 'url' => '/shared/{token}/data', 'verb' => 'POST'],
+    ['name' => 'external_share#stock', 'url' => '/shared/{token}/stock', 'verb' => 'POST'],
     ['name' => 'external_share#file', 'url' => '/shared/{token}/file/{id}', 'verb' => 'POST'],
     ['name' => 'inventory#lookup', 'url' => '/api/lookup/{ean}', 'verb' => 'GET'],
     ['name' => 'inventory#previewSource', 'url' => '/api/source-preview', 'verb' => 'POST'],

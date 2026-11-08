@@ -5,6 +5,8 @@ namespace OCA\Gefahrstoffkataster\Controller;
 
 use OCA\Gefahrstoffkataster\Service\AccessPolicy;
 use OCA\Gefahrstoffkataster\Service\ExternalShareService;
+use OCA\Gefahrstoffkataster\Service\ExternalShareProjection;
+use OCA\Gefahrstoffkataster\Service\ExternalStockBookingService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -28,6 +30,7 @@ final class ExternalShareController extends Controller {
         string $appName,
         IRequest $request,
         private ExternalShareService $shares,
+        private ExternalStockBookingService $stockBookings,
         private AccessPolicy $access,
         private IDBConnection $db,
         private IAppData $appData,
@@ -67,13 +70,15 @@ final class ExternalShareController extends Controller {
             $days = $input['days'] ?? null;
             $password = $input['password'] ?? null;
             $revision = $input['revision'] ?? null;
-            if (!is_string($label) || !is_string($scope) || !is_int($days) || !is_string($password) || !is_string($revision)) {
+            $access = $input['access'] ?? 'read';
+            $recipient = $input['recipient'] ?? '';
+            if (!is_string($label) || !is_string($scope) || !is_int($days) || !is_string($password) || !is_string($revision) || !is_string($access) || !is_string($recipient)) {
                 throw new \InvalidArgumentException('Eingabe ungültig.');
             }
             $actor = $this->session->getUser()->getUID();
-            $link = $this->shares->create($label, $scope, $days, $password, $actor, $revision);
-            $this->logger->info('Gefahrstoffkataster: Externer Leselink erstellt.',
-                ['actor' => $actor, 'link_id' => substr($link['id'], 0, 12), 'scope' => $scope]);
+            $link = $this->shares->create($label, $scope, $days, $password, $actor, $revision, $access, $recipient);
+            $this->logger->info('Gefahrstoffkataster: Externe Freigabe erstellt.',
+                ['actor' => $actor, 'link_id' => substr($link['id'], 0, 12), 'scope' => $scope, 'access' => $access, 'recipient' => $recipient]);
             return new DataResponse([
                 'url' => $this->urls->linkToRouteAbsolute('gefahrstoffkataster.external_share.view', ['token' => $link['token']]),
                 'expires_at' => $link['expires_at'], 'links' => $this->shares->listing(),
@@ -113,6 +118,7 @@ final class ExternalShareController extends Controller {
         $response = new PublicTemplateResponse('gefahrstoffkataster', 'external-share', [
             'apiUrl' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.read', ['token' => $token]),
             'filePattern' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.file', ['token' => $token, 'id' => '__FILE__']),
+            'stockUrl' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.stock', ['token' => $token]),
         ]);
         // Nextcloud's public template otherwise adds a sign-up marketing footer.
         // Our share page supplies its own compact header and footer.
@@ -131,69 +137,93 @@ final class ExternalShareController extends Controller {
             return $this->deniedPublic();
         }
         try {
-            $includeKataster = in_array($entry['scope'], ['kataster','both'], true);
-            $includeLager = in_array($entry['scope'], ['lager','both'], true);
-            $stock = [];
-            $locations = [];
-            if ($includeLager) {
-                foreach ($this->rows('gsk_location') as $place) {
-                    $locations[(int)$place['id']] = (string)$place['name'];
-                }
-                foreach ($this->rows('gsk_stock') as $row) {
-                    $stock[(int)$row['product_id']][] = [
-                        'location' => $locations[(int)$row['location_id']] ?? 'Unbekannter Lagerort',
-                        'packs' => (int)$row['milli'] / 1000,
-                    ];
-                }
-            }
-            $sds = [];
-            if ($includeKataster) {
-                foreach ($this->rows('gsk_file') as $file) {
-                    if ($file['kind'] === 'sds') {
-                        $pid = (int)$file['product_id'];
-                        if (!isset($sds[$pid]) || (int)$file['id'] > $sds[$pid]) $sds[$pid] = (int)$file['id'];
-                    }
-                }
-            }
-            $products = [];
-            foreach ($this->rows('gsk_product') as $row) {
-                $p = json_decode($row['details'], true);
-                if (!is_array($p)) continue;
-                if ($entry['scope'] === 'kataster' && empty($p['hazardous'])) continue;
-                $id = (int)$row['id'];
-                $item = [
-                    'id' => $id,
-                    'name' => (string)($p['name'] ?? ''),
-                    'manufacturer' => (string)($p['manufacturer'] ?? ''),
-                    'category' => (string)($p['category'] ?? ''),
-                    'material_kind' => (string)($p['material_kind'] ?? 'unclassified'),
-                    'hazardous' => !empty($p['hazardous']),
-                ];
-                if ($includeLager) {
-                    $item['pack_size'] = (float)($p['pack_size'] ?? 0);
-                    $item['unit'] = (string)($p['unit'] ?? '');
-                    $item['stock'] = $stock[$id] ?? [];
-                }
-                if ($includeKataster && !empty($p['hazardous'])) {
-                    $item['classification'] = (string)($p['classification'] ?? '');
-                    $item['ghs'] = (string)($p['ghs'] ?? '');
-                    $item['signal'] = (string)($p['signal'] ?? '');
-                    $item['h_statements'] = (string)($p['h_statements'] ?? '');
-                    $item['sds_date'] = (string)($p['sds_date'] ?? '');
-                    $item['sds_url'] = (string)($p['sds_url'] ?? '');
-                    $item['sds_id'] = $sds[$id] ?? null;
-                }
-                $products[] = $item;
+            $projection = ExternalShareProjection::build(
+                $this->rows('gsk_product'),
+                $this->rows('gsk_location'),
+                $this->rows('gsk_stock'),
+                $this->rows('gsk_file'),
+                $entry['scope']
+            );
+            $fullDetails = !empty($entry['full_details']);
+            if (!$fullDetails) $projection = ExternalShareProjection::legacy($projection, $entry['scope']);
+            $products = $projection['products'];
+            $locations = $projection['locations'];
+            // Editors may receive stock at any existing location, including
+            // locations with no stock yet; read-only Kataster remains narrowed.
+            if ($fullDetails && ($entry['access'] ?? 'read') === 'stock_editor'
+                && !empty($entry['password_hash']) && $entry['scope'] === 'kataster') {
+                $locations = array_map(static fn(array $row): array => [
+                    'id'=>(int)$row['id'],'name'=>(string)$row['name']
+                ], $this->rows('gsk_location'));
             }
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
                 ['link_id' => substr(hash('sha256', $token), 0, 12), 'scope' => $entry['scope']]);
             return $this->noStore(new DataResponse([
                 'scope' => $entry['scope'], 'label' => $entry['label'], 'expires_at' => $entry['expires_at'],
-                'products' => $products,
+                'products' => $products, 'locations' => $locations,
+                'full_details' => $fullDetails,
+                'access' => (($entry['access'] ?? 'read') === 'stock_editor' && !empty($entry['password_hash']) && $fullDetails) ? 'stock_editor' : 'read',
+                'recipient' => (($entry['access'] ?? '') === 'stock_editor') ? (string)($entry['recipient'] ?? '') : '',
             ]));
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Externe Leseansicht fehlgeschlagen.', ['type' => get_class($e)]);
             return $this->fail('Freigabe kann derzeit nicht geladen werden.', Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+    /**
+     * External writes are deliberately limited to stock movements, never
+     * product master data or safety metadata. No Nextcloud session is required.
+     */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    #[BruteForceProtection(action: 'gsk-external-stock')]
+    public function stock(string $token): DataResponse {
+        // A non-simple same-origin XHR header prevents ordinary cross-site forms
+        // from exercising a bearer link; browsers cannot cross-origin preflight
+        // this custom header without a deliberate CORS grant.
+        if ($this->request->getHeader('X-GSK-Stock-Action') !== '1') {
+            return $this->noStore($this->fail('Ungültiger Buchungsaufruf.', Http::STATUS_FORBIDDEN));
+        }
+        $entry = $this->shares->authenticate($token, $this->password());
+        if ($entry === null) {
+            $this->logDeniedShare($token, 'stock');
+            return $this->deniedPublic();
+        }
+        if (($entry['access'] ?? 'read') !== 'stock_editor'
+            || empty($entry['password_hash']) || empty($entry['full_details'])
+            || mb_strlen(trim((string)($entry['recipient'] ?? ''))) < 2) {
+            return $this->noStore($this->fail('Keine Berechtigung zur Bestandsbuchung.', Http::STATUS_FORBIDDEN));
+        }
+        try {
+            $raw=$this->request->getParam('booking','');
+            if (!is_string($raw) || strlen($raw)>2048) {
+                throw new \InvalidArgumentException('Ungültige Buchungsdaten.');
+            }
+            $input=json_decode($raw,true,8,JSON_THROW_ON_ERROR);
+            if (!is_array($input) || array_is_list($input)) {
+                throw new \InvalidArgumentException('Buchung muss ein JSON-Objekt sein.');
+            }
+            // The logged actor identifies an individual invitation, not an
+            // independently verified human identity. Never log the secret token.
+            $id=substr(hash('sha256',$token),0,16);
+            $actor='external:'.$id;
+            $change=$this->stockBookings->book($input,(string)$entry['scope'],$actor);
+            $this->logger->info('Gefahrstoffkataster: Externe Bestandsbuchung.', [
+                'link_id'=>$id,'recipient'=>(string)$entry['recipient'],'action'=>(string)$input['action'],
+                'product_id'=>(int)$input['product_id'],'location_id'=>(int)$input['location_id'],
+            ]);
+            return $this->noStore(new DataResponse($change));
+        } catch (\DomainException $e) {
+            return $this->noStore($this->fail('Produkt ist nicht für diese Freigabe zugelassen.',Http::STATUS_FORBIDDEN));
+        } catch (\InvalidArgumentException|\JsonException|\TypeError $e) {
+            return $this->noStore($this->fail($e->getMessage(),Http::STATUS_BAD_REQUEST));
+        } catch (\RuntimeException $e) {
+            return $this->noStore($this->fail('Bestand hat sich geändert. Bitte neu laden.',Http::STATUS_CONFLICT));
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Externe Bestandsbuchung fehlgeschlagen.', ['type'=>get_class($e)]);
+            return $this->noStore($this->fail('Buchung konnte nicht gespeichert werden.',Http::STATUS_INTERNAL_SERVER_ERROR));
         }
     }
 
@@ -206,32 +236,36 @@ final class ExternalShareController extends Controller {
             $this->logDeniedShare($token, 'data');
             return $this->deniedPublic();
         }
-        // The stock-only view never grants access to SDB documents.
-        if (!in_array($entry['scope'], ['kataster','both'], true)) {
+        $file = $this->one('gsk_file', $id);
+        if ($file && $file['kind'] === 'photo' && empty($entry['full_details'])) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
-        $file = $this->one('gsk_file', $id);
-        if (!$file || $file['kind'] !== 'sds') return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+        if (!$file || !in_array($file['kind'], ['photo','sds'], true)) {
+            return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+        }
         $product = $this->one('gsk_product', (int)$file['product_id']);
         if (!$product) return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         $p = json_decode($product['details'], true);
-        if (!is_array($p) || empty($p['hazardous'])) {
+        if (!is_array($p) || !ExternalShareProjection::allowsFile(
+            $file, $p, $this->rows('gsk_file'), $entry['scope']
+        )) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
-        // Expose only the latest SDB, exactly as in the public product listing.
-        foreach ($this->rows('gsk_file') as $candidate) {
-            if ($candidate['kind'] === 'sds' && (int)$candidate['product_id'] === (int)$file['product_id']
-                && (int)$candidate['id'] > $id) {
-                return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
-            }
+        // Allow only image formats already accepted by the internal upload API.
+        $photoMimes = ['image/jpeg','image/png','image/webp','image/heic','image/heif'];
+        $mime = $file['kind'] === 'sds' ? 'application/pdf' : (string)$file['mime'];
+        if ($file['kind'] === 'photo' && !in_array($mime, $photoMimes, true)) {
+            return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
         try {
             $folder = $this->appData->getFolder('documents');
             $content = $folder->getFile($file['storage_name'])->getContent();
-            if (!is_string($content)) throw new \RuntimeException('Empty document');
-            $response = new DataDownloadResponse($content, $file['filename'], 'application/pdf');
+            if (!is_string($content)) throw new \RuntimeException('Missing document');
+            $response = new DataDownloadResponse($content, (string)$file['filename'], $mime);
             $response->addHeader('X-Content-Type-Options', 'nosniff');
-            $response->addHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+            if ($file['kind'] === 'sds') {
+                $response->addHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+            }
             return $this->noStore($response);
         } catch (\Throwable $e) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);

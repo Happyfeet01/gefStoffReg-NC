@@ -15,6 +15,7 @@ final class ExternalShareService {
     private const KEY = 'external_shares_v1';
     private const SCOPES = ['kataster', 'lager', 'both'];
     private const DAYS = [1, 7, 30];
+    public const ACCESS = ['read', 'stock_editor'];
     private const MAX_LINKS = 100;
 
     public function __construct(private IConfig $config) {}
@@ -39,6 +40,9 @@ final class ExternalShareService {
                 'expires_at' => (int)($entry['expires_at'] ?? 0),
                 'created_at' => (int)($entry['created_at'] ?? 0),
                 'password_protected' => !empty($entry['password_hash']),
+                'full_details' => !empty($entry['full_details']),
+                'access' => ($entry['access'] ?? 'read') === 'stock_editor' ? 'stock_editor' : 'read',
+                'recipient' => (string)($entry['recipient'] ?? ''),
                 'expired' => (int)($entry['expires_at'] ?? 0) <= time(),
             ];
         }
@@ -46,13 +50,23 @@ final class ExternalShareService {
         return ['links' => $items, 'revision' => hash('sha256', $this->raw())];
     }
 
-    public function create(string $label, string $scope, int $days, string $password, string $actor, string $revision): array {
+    public function create(string $label, string $scope, int $days, string $password, string $actor, string $revision, string $access = 'read', string $recipient = ''): array {
         $label = trim($label);
         if ($label === '' || mb_strlen($label) > 100) throw new \InvalidArgumentException('Bezeichnung muss 1 bis 100 Zeichen enthalten.');
         if (!in_array($scope, self::SCOPES, true)) throw new \InvalidArgumentException('Freigabebereich ungültig.');
         if (!in_array($days, self::DAYS, true)) throw new \InvalidArgumentException('Laufzeit ungültig.');
         if ($password !== '' && (mb_strlen($password) < 12 || mb_strlen($password) > 256)) {
             throw new \InvalidArgumentException('Passwort muss mindestens 12 Zeichen haben.');
+        }
+        if (!in_array($access, self::ACCESS, true)) throw new \InvalidArgumentException('Unbekannte Freigabeberechtigung.');
+        $recipient = trim($recipient);
+        if ($access === 'stock_editor') {
+            if ($password === '') throw new \InvalidArgumentException('Für Schreibrechte ist ein sicheres Passwort Pflicht.');
+            if (mb_strlen($recipient) < 2 || mb_strlen($recipient) > 60) {
+                throw new \InvalidArgumentException('Für Schreibrechte bitte den Namen der berechtigten Person angeben.');
+            }
+        } elseif ($recipient !== '') {
+            throw new \InvalidArgumentException('Ein Mitarbeitername ist nur für Schreibzugänge vorgesehen.');
         }
         $current = $this->raw();
         $this->assertRevision($revision, $current);
@@ -70,6 +84,9 @@ final class ExternalShareService {
             'expires_at' => $now + $days * 86400,
             'password_hash' => $password === '' ? '' : password_hash($password, PASSWORD_DEFAULT),
             'created_by' => $actor,
+            'full_details' => true,
+            'access' => $access,
+            'recipient' => $recipient,
         ];
         $this->save($entries);
         return ['token' => $token, 'id' => $hash, 'expires_at' => $entries[$hash]['expires_at']];

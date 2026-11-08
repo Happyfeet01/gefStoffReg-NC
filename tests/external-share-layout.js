@@ -27,7 +27,12 @@ assert.match(controller, /setFooterVisible\(false\)/);
 assert.match(js, /\$\('external-auth'\)\.hidden=true/);
 assert.match(html, /id="external-password-toggle"/);
 assert.match(adminHtml, /id="external-share-password-toggle"/);
-assert.match(js, /new URLSearchParams\(\{password\}\)/);
+assert.match(js, /new URLSearchParams\(booking===null\?\{password\}:\{password,booking:JSON\.stringify\(booking\)\}\)/);
+assert.match(js, /X-GSK-Stock-Action/);
+assert.match(html, /data-stock-url=/);
+assert.match(adminHtml, /id="external-share-access"/);
+assert.match(adminHtml, /id="external-share-recipient"/);
+assert.match(controller, /public function stock\(string \$token\)/);
 assert.match(js, /credentials:'same-origin'/);
 assert.doesNotMatch(js, /credentials:'omit'/);
 assert.match(js, /external-password-toggle.*addEventListener/);
@@ -47,6 +52,13 @@ assert.match(js, /button\.title=visible/);
 assert.doesNotMatch(js, /button\.textContent=visible/);
 assert.match(adminJs, /toggle\.title=visible/);
 assert.doesNotMatch(adminJs, /toggle\.textContent=visible/);
+// Nextcloud 35 guest shell may vertically center the body and fix all footers.
+// The public product list must restore actual document scroll and normal footer flow.
+assert.match(css, /body#body-public:has\(#gsk-external\)\s*\{[^}]*display:block !important/s);
+assert.match(css, /html:has\(#gsk-external\)\s*\{[^}]*overflow-y:auto !important/s);
+assert.match(css, /body#body-public #content\.app-gefahrstoffkataster:has\(#gsk-external\)/);
+assert.match(css, /body#body-public #gsk-external > footer\.external-page-footer\s*\{[^}]*position:static !important/s);
+assert.match(css, /body#body-public #gsk-external \.external-page\s*\{[^}]*overflow:visible/s);
 new Function(adminJs);
 new Function(js);
 console.log('External public page layout, controls and responsive CSS guards passed');

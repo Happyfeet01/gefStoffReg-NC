@@ -100,7 +100,7 @@
       $('external-empty').hidden=products.length>0;
       $('external-content').hidden=false;
       $('external-password').value='';
-      $('external-unlock').hidden=true;
+      $('external-auth').hidden=true;
     }catch(error){$('external-error').textContent=error.message;$('external-error').hidden=false;$('external-content').hidden=true}
     finally{button.disabled=false}
   });

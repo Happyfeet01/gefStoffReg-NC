@@ -502,7 +502,7 @@ async function loadExternalLinks(){
     const item=el('div','share-row');
     const expiry=new Date(Number(link.expires_at)*1000).toLocaleDateString('de-DE');
     const status=link.expired?'Abgelaufen':'Gültig bis '+expiry;
-    item.append(el('div','',`${link.label} · ${externalScopeLabels[link.scope]||link.scope} · ${status} · ${link.password_protected?'Passwortschutz':'Ohne Passwort'}`));
+    item.append(el('div','',`${link.label} · ${externalScopeLabels[link.scope]||link.scope} · ${status} · ${link.access==='stock_editor'?'Bestände bearbeiten ('+(link.recipient||'Person ohne Namen')+')':'Nur lesen'} · ${link.password_protected?'Passwortschutz':'Ohne Passwort'} · ${link.full_details?'Vollständige Leseansicht':'Ältere eingeschränkte Ansicht'}`));
     const revoke=button('Widerrufen',async()=>{
       revoke.disabled=true;
       try{
@@ -529,6 +529,15 @@ function setPasswordVisibility(inputId,buttonId,visible){
 $('external-share-password-toggle').addEventListener('click',()=>{
   setPasswordVisibility('external-share-password','external-share-password-toggle',$('external-share-password').type==='password');
 });
+function updateExternalAccess(){
+  const edit=$('external-share-access').value==='stock_editor';
+  $('external-share-recipient-row').hidden=!edit;
+  $('external-share-recipient').required=edit;
+  $('external-share-password').required=edit;
+  $('external-share-password').placeholder=edit?'Pflicht: mindestens 12 Zeichen':'Mindestens 12 Zeichen, wenn gesetzt';
+}
+$('external-share-access').addEventListener('change',updateExternalAccess);
+updateExternalAccess();
 $('external-share-form').addEventListener('submit',async event=>{
   event.preventDefault();
   const button=event.currentTarget.querySelector('button[type="submit"]');
@@ -540,14 +549,19 @@ $('external-share-form').addEventListener('submit',async event=>{
       days:Number($('external-share-days').value),
       password:$('external-share-password').value,
       revision:state.externalShareRevision,
+      access:$('external-share-access').value,
+      recipient:$('external-share-access').value==='stock_editor'?$('external-share-recipient').value.trim():'',
     });
     $('external-share-password').value='';
     setPasswordVisibility('external-share-password','external-share-password-toggle',false);
     $('external-share-created-url').value=data.url;
     $('external-share-created').hidden=false;
     $('external-share-label').value='';
+    $('external-share-recipient').value='';
+    $('external-share-access').value='read';
+    updateExternalAccess();
     await loadExternalLinks();
-    notice('Externer Leselink erstellt.');
+    notice('Externer Freigabelink erstellt.');
   }catch(err){
     notice(err.message,true);
     await loadExternalLinks().catch(()=>{});

@@ -392,3 +392,360 @@ body#body-public #gsk-external > footer.external-page-footer {
   flex:0 0 auto;
   padding-block-end:max(18px,env(safe-area-inset-bottom));
 }
+
+
+/* Complete read-only inventory view: locations, stock and expandable detail panels. */
+#gsk-external .external-location-overview,
+#gsk-external .external-filters {
+  border:1px solid var(--gsk-border);border-radius:15px;
+  padding:20px 22px;margin:0 0 18px;
+  background:var(--color-main-background-blur,rgba(245,250,255,.88));
+  backdrop-filter:var(--filter-background-blur,blur(16px));
+}
+#gsk-external .external-section-heading {
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  margin-bottom:12px;
+}
+#gsk-external .external-section-heading h2 {font-size:17px;font-weight:750;color:var(--gsk-ink)}
+#gsk-external .external-location-tags {display:flex;flex-wrap:wrap;gap:8px}
+#gsk-external .external-location-tag {
+  background:var(--color-background-hover,#eff4f7);
+  color:var(--color-main-text,#283645);border:1px solid var(--gsk-border);
+  border-radius:100px;padding:5px 11px;font-size:12px;font-weight:600;
+}
+#gsk-external .external-filters {
+  display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;
+}
+#gsk-external .external-filters label {
+  display:flex;flex-direction:column;gap:6px;min-width:0;
+  font-size:12px;font-weight:700;color:var(--gsk-ink);
+}
+#gsk-external .external-filters input,
+#gsk-external .external-filters select {
+  width:100%;min-width:0;min-height:44px;padding:8px 12px;
+  border:1px solid var(--color-border-dark,#b5c1ca);
+  border-radius:var(--border-radius-element,8px);
+  background:var(--color-main-background,#fff);color:var(--color-main-text,#222);
+  font:inherit;font-size:14px;
+}
+#gsk-external .external-readonly-explainer {
+  margin:2px 0 16px;color:var(--gsk-muted);font-size:13px;
+}
+#gsk-external .external-product-heading {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin:0 0 8px;
+}
+#gsk-external .external-product-heading h3 {margin:0}
+#gsk-external .external-product-details {
+  border-top:1px solid var(--gsk-border);
+  margin-top:18px;padding-top:12px;
+}
+#gsk-external .external-detail-toggle {
+  list-style:none;cursor:pointer;user-select:none;
+  min-height:44px;display:flex;align-items:center;justify-content:space-between;
+  color:var(--gsk-primary);font-weight:750;font-size:13px;
+}
+#gsk-external .external-detail-toggle::-webkit-details-marker {display:none}
+#gsk-external .external-detail-toggle::after {
+  content:'⌄';font-size:24px;font-weight:400;line-height:1;
+  transition:transform .15s ease;
+}
+#gsk-external details[open] > .external-detail-toggle::after {transform:rotate(180deg)}
+#gsk-external .external-detail-toggle:focus-visible {
+  outline:2px solid var(--gsk-primary);outline-offset:2px;border-radius:6px;
+}
+#gsk-external .external-detail-content {padding:8px 0 3px}
+#gsk-external .external-detail-section {
+  margin:0 0 19px;padding:0 0 16px;
+  border-bottom:1px solid var(--gsk-border);
+}
+#gsk-external .external-detail-section:last-child {margin-bottom:0;border-bottom:0;padding-bottom:0}
+#gsk-external .external-detail-section h4 {font-size:14px;font-weight:750;margin:0 0 11px}
+#gsk-external .external-detail-section h5 {font-size:13px;font-weight:700;margin:15px 0 10px}
+#gsk-external .external-fields {
+  margin:0;display:grid;grid-template-columns:minmax(0,1fr);row-gap:4px;
+}
+#gsk-external .external-fields dt {
+  margin:8px 0 0;color:var(--gsk-muted);
+  font-size:11px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;
+}
+#gsk-external .external-fields dd {
+  margin:0 0 4px;overflow-wrap:anywhere;
+  white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--gsk-ink);
+}
+#gsk-external .external-stock-list {display:flex;flex-direction:column;gap:8px}
+#gsk-external .external-stock-row {
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:6px;padding:10px 12px;border-radius:8px;
+  background:var(--color-background-hover,rgba(125,140,155,.08));
+  font-size:12px;
+}
+#gsk-external .external-stock-row strong {font-weight:750;color:var(--gsk-ink)}
+#gsk-external .external-photo-group {margin-top:16px}
+#gsk-external .external-photo-row {
+  padding:12px 0;border-top:1px solid var(--gsk-border);
+  overflow-wrap:anywhere;
+}
+#gsk-external .external-photo-row .external-actions {margin-top:8px}
+#gsk-external .external-actions {align-items:center;flex-wrap:wrap;gap:9px}
+#gsk-external .external-detail-section .external-actions button {
+  width:auto;min-height:42px;padding:8px 12px;
+}
+#gsk-external .external-detail-section .external-actions .external-secondary-button {
+  background:var(--color-background-hover,#edf4f6);
+  color:var(--gsk-ink);border:1px solid var(--gsk-border);
+}
+#gsk-external .external-photo-preview {margin-top:12px}
+#gsk-external .external-photo {
+  display:block;max-width:100%;max-height:320px;width:auto;height:auto;
+  border-radius:10px;border:1px solid var(--gsk-border);
+}
+@media(max-width:600px) {
+  #gsk-external .external-location-overview,
+  #gsk-external .external-filters {padding:17px 18px}
+  #gsk-external .external-filters {grid-template-columns:minmax(0,1fr);gap:12px}
+  #gsk-external .external-product-heading {align-items:flex-start}
+  #gsk-external .external-product-heading h3 {flex:1 1 190px}
+}
+
+
+/* Limited external stock editing: all master/safety data remain read-only. */
+#gsk-external .external-access-info {
+  margin:0 0 16px;padding:11px 14px;border:1px solid var(--gsk-border);
+  border-radius:10px;background:var(--color-background-hover,rgba(255,255,255,.18));
+  font-size:13px;font-weight:600;
+}
+#gsk-external .external-booking-section {
+  border-radius:12px;border:1px solid var(--gsk-border);
+  background:var(--color-background-hover,rgba(245,250,255,.18));
+  padding:16px;margin-top:17px;
+}
+#gsk-external .external-booking-form {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;
+}
+#gsk-external .external-booking-form label {
+  display:flex;flex-direction:column;gap:7px;
+  color:var(--gsk-ink);font-size:12px;font-weight:750;min-width:0;
+}
+#gsk-external .external-booking-form input,
+#gsk-external .external-booking-form select {
+  display:block;width:100%;min-width:0;min-height:44px;
+  background:var(--color-main-background,#fff);
+  color:var(--color-main-text,#222);
+  border:1px solid var(--color-border-dark,#b5c1ca);
+  border-radius:var(--border-radius-element,8px);
+  padding:8px 12px;font-size:16px;
+}
+#gsk-external .external-booking-form .external-booking-submit {
+  width:100%;grid-column:1/-1;justify-content:center;
+}
+#gsk-external .external-booking-form .external-muted {
+  margin:auto 0;align-self:center;
+}
+#gsk-external #external-error.external-success {
+  border-color:var(--color-success,#238c43);
+  background:var(--color-background-hover,rgba(255,255,255,.18));
+  color:var(--color-success,#238c43);
+}
+@media(max-width:600px) {
+  #gsk-external .external-booking-form {grid-template-columns:minmax(0,1fr)}
+  #gsk-external .external-booking-form .external-booking-submit {grid-column:auto}
+}
+
+
+/* Everyday inventory workflow: compact readable product info instead of
+   inherited Nextcloud public dl/dt/dd spacing. */
+#gsk-external .external-detail-content {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:12px;
+  padding:14px 0 2px;
+}
+#gsk-external .external-detail-content > .external-detail-section {
+  min-width:0;
+  margin:0;
+  padding:16px;
+  border:1px solid rgba(125,145,165,.21);
+  border-radius:13px;
+  background:rgba(255,255,255,.83);
+  box-shadow:0 2px 10px rgba(20,45,70,.035);
+}
+#gsk-external .external-detail-content > .external-detail-section h4 {
+  margin:0 0 12px;
+  padding:0;
+  font-size:15px;
+  font-weight:750;
+  color:var(--gsk-ink);
+}
+#gsk-external .external-field-grid {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:8px;
+  margin:0;
+  padding:0;
+}
+#gsk-external .external-field-row {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:3px;
+  min-width:0;
+  margin:0;
+  padding:10px 12px;
+  background:rgba(255,255,255,.65);
+  border:1px solid rgba(130,147,165,.13);
+  border-radius:9px;
+  line-height:1.35;
+}
+#gsk-external .external-field-label {
+  display:block;
+  padding:0;
+  margin:0;
+  width:auto;
+  color:#536579;
+  font-size:11px;
+  line-height:1.3;
+  font-weight:750;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+#gsk-external .external-field-value {
+  display:block;
+  width:100%;
+  margin:0;
+  padding:0;
+  color:#1e2d3d;
+  font-size:15px;
+  font-weight:500;
+  line-height:1.45;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+#gsk-external .external-quick-booking {
+  margin:14px 0 3px;
+  border:1px solid var(--gsk-border);
+  border-radius:12px;
+  background:rgba(255,255,255,.78);
+  overflow:clip;
+}
+#gsk-external .external-quick-booking-toggle {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  min-height:48px;
+  padding:11px 15px;
+  cursor:pointer;
+  list-style:none;
+  color:var(--gsk-primary);
+  font-size:15px;
+  font-weight:750;
+}
+#gsk-external .external-quick-booking-toggle::-webkit-details-marker {display:none}
+#gsk-external .external-quick-booking-toggle::after {
+  content:'＋';
+  font-size:21px;
+  font-weight:400;
+  line-height:1;
+}
+#gsk-external .external-quick-booking[open] > .external-quick-booking-toggle::after {content:'－'}
+#gsk-external .external-quick-booking-toggle:focus-visible {
+  outline:2px solid var(--gsk-primary);
+  outline-offset:-3px;
+}
+#gsk-external .external-quick-booking .external-booking-section {
+  margin:0;
+  padding:14px 15px 16px;
+  border:none;
+  border-top:1px solid var(--gsk-border);
+  border-radius:0;
+  background:transparent;
+}
+#gsk-external .external-quick-booking .external-booking-section h4 {
+  margin:0 0 6px;
+  font-size:14px;
+}
+#gsk-external .external-quick-booking .external-booking-section > .external-muted {
+  margin:0 0 13px;
+  font-size:12px;
+}
+#gsk-external .external-quick-booking .external-booking-form {
+  grid-template-columns:minmax(0,1fr);
+  gap:12px;
+}
+#gsk-external .external-quick-booking .external-booking-form label {font-size:12px}
+#gsk-external .external-quick-booking .external-booking-form .external-booking-submit {
+  grid-column:1;
+  width:100%;
+}
+#gsk-external .external-product-details {margin-top:12px;padding-top:8px}
+#gsk-external .external-detail-toggle {font-size:13px;font-weight:650}
+#gsk-external #external-readonly-explainer:not([hidden]) {
+  margin:4px 0 16px;
+  padding:12px 14px;
+  color:var(--gsk-ink);
+  font-size:13px;
+  line-height:1.5;
+  background:rgba(255,255,255,.88);
+  border:1px solid var(--gsk-border);
+  border-radius:11px;
+}
+@media (min-width:750px) {
+  #gsk-external .external-field-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media (max-width:600px) {
+  #gsk-external .external-detail-content {gap:10px;padding-top:10px}
+  #gsk-external .external-detail-content > .external-detail-section {padding:12px}
+  #gsk-external .external-field-grid {gap:7px}
+  #gsk-external .external-field-row {padding:9px 11px}
+  #gsk-external .external-field-value {font-size:15px}
+}
+
+
+#gsk-external .external-booking-feedback {
+  display:block;
+  margin:12px 0 0;
+  padding:11px 13px;
+  border:1px solid rgba(26,120,78,.26);
+  border-radius:9px;
+  background:rgba(233,250,240,.95);
+  color:#16623c;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.45;
+}
+#gsk-external .external-booking-inline-error:not([hidden]) {
+  grid-column:1/-1;
+  margin:0;
+  padding:10px 12px;
+  border:1px solid rgba(185,40,40,.28);
+  border-radius:9px;
+  background:rgba(255,246,246,.97);
+  color:#992626;
+  font-size:13px;
+  line-height:1.45;
+}
+
+
+#gsk-external .external-location-overview > summary.external-section-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:44px;
+  margin:0;
+  padding:0;
+  list-style:none;
+  cursor:pointer;
+  color:var(--gsk-ink);
+  font-size:14px;
+}
+#gsk-external .external-location-overview > summary.external-section-heading::-webkit-details-marker {display:none}
+#gsk-external .external-location-overview[open] > summary.external-section-heading {margin-bottom:12px}
+#gsk-external .external-location-overview > summary.external-section-heading:focus-visible {
+  outline:2px solid var(--gsk-primary);
+  outline-offset:3px;
+  border-radius:6px;
+}

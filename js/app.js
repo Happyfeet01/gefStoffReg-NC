@@ -519,6 +519,16 @@ async function loadExternalLinks(){
   }
   if(!list.childElementCount)list.append(el('p','hint','Noch keine externen Freigaben.'));
 }
+function setPasswordVisibility(inputId,buttonId,visible){
+  const field=$(inputId),toggle=$(buttonId);
+  field.type=visible?'text':'password';
+  toggle.setAttribute('aria-pressed',String(visible));
+  toggle.setAttribute('aria-label',visible?'Passwort verbergen':'Passwort anzeigen');
+  toggle.textContent=visible?'Verbergen':'Anzeigen';
+}
+$('external-share-password-toggle').addEventListener('click',()=>{
+  setPasswordVisibility('external-share-password','external-share-password-toggle',$('external-share-password').type==='password');
+});
 $('external-share-form').addEventListener('submit',async event=>{
   event.preventDefault();
   const button=event.currentTarget.querySelector('button[type="submit"]');
@@ -532,6 +542,7 @@ $('external-share-form').addEventListener('submit',async event=>{
       revision:state.externalShareRevision,
     });
     $('external-share-password').value='';
+    setPasswordVisibility('external-share-password','external-share-password-toggle',false);
     $('external-share-created-url').value=data.url;
     $('external-share-created').hidden=false;
     $('external-share-label').value='';

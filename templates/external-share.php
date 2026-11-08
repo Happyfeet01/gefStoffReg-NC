@@ -58,13 +58,13 @@ $stockUrl = htmlspecialchars((string)($_['stockUrl'] ?? ''), ENT_QUOTES | ENT_SU
         </div>
         <div id="external-count" class="external-count"></div>
       </div>
-      <section id="external-location-overview" class="external-location-overview" aria-labelledby="external-locations-title">
-        <div class="external-section-heading">
-          <h2 id="external-locations-title">Lagerorte</h2>
+      <details id="external-location-overview" class="external-location-overview">
+        <summary id="external-locations-title" class="external-section-heading">
+          <strong>Lagerorte anzeigen</strong>
           <span id="external-locations-count" class="external-muted"></span>
-        </div>
+        </summary>
         <div id="external-locations" class="external-location-tags"></div>
-      </section>
+      </details>
       <div class="external-filters">
         <label for="external-search">Produkte durchsuchen
           <input id="external-search" type="search" placeholder="Produkt, Hersteller, Artikelnummer …" autocomplete="off">

@@ -32,7 +32,10 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
 
       <form id="external-unlock">
         <label for="external-password">Freigabepasswort <span class="external-optional">(falls vorhanden)</span></label>
-        <input id="external-password" name="password" type="password" autocomplete="off" placeholder="Passwort eingeben">
+        <div class="external-password-control">
+          <input id="external-password" name="password" type="password" autocomplete="off" placeholder="Passwort eingeben">
+          <button type="button" id="external-password-toggle" class="external-password-toggle" aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="external-password">Anzeigen</button>
+        </div>
         <p class="external-field-hint">Kein Passwort erhalten? Lass das Feld einfach leer.</p>
         <button type="submit">Freigabe anzeigen <span aria-hidden="true">→</span></button>
       </form>

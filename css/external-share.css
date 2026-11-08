@@ -702,3 +702,28 @@ body#body-public #gsk-external > footer.external-page-footer {
   #gsk-external .external-field-row {padding:9px 11px}
   #gsk-external .external-field-value {font-size:15px}
 }
+
+
+#gsk-external .external-booking-feedback {
+  display:block;
+  margin:12px 0 0;
+  padding:11px 13px;
+  border:1px solid rgba(26,120,78,.26);
+  border-radius:9px;
+  background:rgba(233,250,240,.95);
+  color:#16623c;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.45;
+}
+#gsk-external .external-booking-inline-error:not([hidden]) {
+  grid-column:1/-1;
+  margin:0;
+  padding:10px 12px;
+  border:1px solid rgba(185,40,40,.28);
+  border-radius:9px;
+  background:rgba(255,246,246,.97);
+  color:#992626;
+  font-size:13px;
+  line-height:1.45;
+}

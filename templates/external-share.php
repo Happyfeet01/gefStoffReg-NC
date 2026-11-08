@@ -36,7 +36,6 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
         <p class="external-field-hint">Kein Passwort erhalten? Lass das Feld einfach leer.</p>
         <button type="submit">Freigabe anzeigen <span aria-hidden="true">→</span></button>
       </form>
-      <p id="external-error" role="alert" hidden></p>
       <div class="external-privacy-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <path d="m12 22 7-4V7l-7-4-7 4v11z"/>
@@ -59,6 +58,7 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
       <p id="external-empty" class="external-empty" hidden>Keine Produkte für diese Freigabe vorhanden.</p>
       <p class="external-footnote">Die Angaben entsprechen dem zuletzt abgerufenen Datenstand. Einstufung und Sicherheitsdatenblätter vor der Verwendung anhand des Originalprodukts prüfen.</p>
     </section>
+    <p id="external-error" role="alert" hidden></p>
   </div>
 
   <footer class="external-page-footer">

@@ -78,4 +78,15 @@ check(View::allowsFile($find(14),$plain,$files,'lager'), 'Warehouse product phot
 check(!View::allowsFile($find(16),$hazard,$files,'both'), 'Unknown file kind accessible');
 check(!View::allowsFile($find(13),$hazard,$files,'invalid'), 'Invalid scope downloaded photo');
 
+$oldKataster = View::legacy($kataster,'kataster');
+check(!isset($oldKataster['products'][0]['stock'])
+    && !isset($oldKataster['products'][0]['photos'])
+    && $oldKataster['locations'] === [], 'Legacy Kataster link unexpectedly gained inventory access');
+check($oldKataster['products'][0]['sds_id'] === 12, 'Legacy Kataster SDB missing');
+$oldLager = View::legacy($lager,'lager');
+check(isset($oldLager['products'][0]['stock'])
+    && !isset($oldLager['products'][0]['photos'])
+    && !isset($oldLager['products'][0]['ufi']), 'Legacy warehouse scope expanded');
+check(!isset($oldLager['products'][0]['article']), 'Legacy link gained new master fields');
+
 echo "External read-only scope, full stocks, locations, documents and field allowlist passed\n";

@@ -15,7 +15,7 @@ $stockUrl = htmlspecialchars((string)($_['stockUrl'] ?? ''), ENT_QUOTES | ENT_SU
       </span>
       <span><strong>Lager &amp; Gefahrstoffe</strong><small>Freigegebene Bestandsdaten</small></span>
     </div>
-    <span class="external-readonly-pill">Nur Lesezugriff</span>
+    <span id="external-access-badge" class="external-readonly-pill">Nur Lesezugriff</span>
   </header>
 
   <div class="external-page">
@@ -84,6 +84,6 @@ $stockUrl = htmlspecialchars((string)($_['stockUrl'] ?? ''), ENT_QUOTES | ENT_SU
 
   <footer class="external-page-footer">
     <span>Externe Ansicht · Lager &amp; Gefahrstoffe</span>
-    <span>Nur Lesezugriff</span>
+    <span id="external-footer-access">Nur Lesezugriff</span>
   </footer>
 </main>

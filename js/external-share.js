@@ -107,7 +107,7 @@
   });
   $('external-unlock').addEventListener('submit',async event=>{
     event.preventDefault();
-    const button=event.currentTarget.querySelector('button');
+    const button=event.currentTarget.querySelector('button[type="submit"]');
     button.disabled=true;$('external-error').hidden=true;
     try{
       password=$('external-password').value;
@@ -125,6 +125,8 @@
       $('external-password').value='';
       $('external-password').type='password';
       $('external-password-toggle').setAttribute('aria-pressed','false');
+      $('external-password-toggle').textContent='Anzeigen';
+      $('external-password-toggle').setAttribute('aria-label','Passwort anzeigen');
       $('external-auth').hidden=true;
     }catch(error){$('external-error').textContent=error.message;$('external-error').hidden=false;$('external-content').hidden=true}
     finally{button.disabled=false}

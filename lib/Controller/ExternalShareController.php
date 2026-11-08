@@ -114,7 +114,10 @@ final class ExternalShareController extends Controller {
             'apiUrl' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.read', ['token' => $token]),
             'filePattern' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.file', ['token' => $token, 'id' => '__FILE__']),
         ]);
-        $response->setHeaderTitle('Freigegebene Bestandsdaten');
+        // Nextcloud's public template otherwise adds a sign-up marketing footer.
+        // Our share page supplies its own compact header and footer.
+        $response->setHeaderTitle('Lager & Gefahrstoffe');
+        $response->setFooterVisible(false);
         return $this->noStore($response);
     }
 

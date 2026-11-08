@@ -119,6 +119,11 @@ declare(strict_types=1);
   <dialog id="sharing-dialog" aria-labelledby="sharing-title">
     <header class="dialog-head"><div><h2 id="sharing-title">Freigaben verwalten</h2><p class="hint">Nextcloud-Benutzer oder -Gruppen mit passenden Rechten einladen.</p></div><button class="close" type="button" data-close="sharing-dialog" aria-label="Freigaben schließen">×</button></header>
     <div class="dialog-scroll">
+      <div class="share-tabs" role="tablist" aria-label="Freigabeart">
+        <button id="share-tab-internal" role="tab" type="button" aria-selected="true" aria-controls="share-internal-panel">Nextcloud-Nutzer</button>
+        <button id="share-tab-external" role="tab" type="button" aria-selected="false" aria-controls="share-external-panel" tabindex="-1">Externe Links</button>
+      </div>
+      <section id="share-internal-panel" role="tabpanel" aria-labelledby="share-tab-internal" class="share-panel">
       <form id="sharing-form">
         <div class="grid">
           <label>Freigeben an<select id="share-type" required><option value="user">Benutzer</option><option value="group">Gruppe</option></select></label>
@@ -128,7 +133,11 @@ declare(strict_types=1);
         <p class="hint">Lagerbearbeiter dürfen Bestände buchen und ungefährliche Verbrauchsmaterialien pflegen. Gefahrstoffangaben und Freigaben sind gesondert geschützt.</p>
         <div class="share-form-actions"><button type="submit" class="primary">Freigabe speichern</button></div>
       </form>
-      <section id="external-share-manager" class="external-share-manager" aria-labelledby="external-share-title">
+      <h3 class="share-heading">Aktuelle Freigaben</h3>
+      <div id="share-list" aria-live="polite"></div>
+      <p class="hint">Die bisherige Nextcloud-Gruppe freibad-gefahrstoffe behält vorerst ihre bisherigen Rechte. Ihre Mitgliedschaft wird weiterhin in Nextcloud verwaltet. Die Freigaben gelten derzeit für den gesamten App-Bestand, noch nicht pro Standort.</p>
+      </section>
+      <section id="share-external-panel" class="external-share-manager share-panel" role="tabpanel" aria-labelledby="share-tab-external" hidden>
         <h3 id="external-share-title">Externe Links (ohne Nextcloud-Konto)</h3>
         <p class="hint">Externe Links erlauben ausschließlich Lesen. Du kannst sie befristen, mit einem Passwort schützen und jederzeit widerrufen.</p>
         <form id="external-share-form">
@@ -150,9 +159,6 @@ declare(strict_types=1);
         <h4>Aktive und abgelaufene Links</h4>
         <div id="external-share-list" aria-live="polite"></div>
       </section>
-      <h3 class="share-heading">Aktuelle Freigaben</h3>
-      <div id="share-list" aria-live="polite"></div>
-      <p class="hint">Die bisherige Nextcloud-Gruppe freibad-gefahrstoffe behält vorerst ihre bisherigen Rechte. Ihre Mitgliedschaft wird weiterhin in Nextcloud verwaltet. Die Freigaben gelten derzeit für den gesamten App-Bestand, noch nicht pro Standort.</p>
     </div>
   </dialog>
   <dialog id="stock-dialog" aria-labelledby="stock-title">

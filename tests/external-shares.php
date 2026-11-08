@@ -38,6 +38,14 @@ namespace {
     insist($service->authenticate(str_repeat('a',64), 'langes-Sicheres-Passwort-123') === null, 'Unknown token accepted');
     $list = $service->listing();
     insist(count($list['links']) === 1 && $list['links'][0]['scope'] === 'kataster', 'Listing incorrect');
+    insist(($list['links'][0]['full_details'] ?? null) === true, 'New links must explicitly opt in to complete detail');
+    $legacyState = json_decode($config->storage['external_shares_v1'], true);
+    unset($legacyState['links'][$generated['id']]['full_details']);
+    $config->storage['external_shares_v1'] = json_encode($legacyState);
+    insist(empty($service->active($generated['token'])['full_details']), 'Legacy token was silently upgraded');
+    $legacyState['links'][$generated['id']]['full_details'] = true;
+    $config->storage['external_shares_v1'] = json_encode($legacyState);
+    $list = $service->listing();
     insist(!array_key_exists('token', $list['links'][0]) && !array_key_exists('password_hash', $list['links'][0]), 'Secret exposed through listing');
     foreach (['wrong','',str_repeat('x',12)] as $badRevision) {
         try {

@@ -249,8 +249,10 @@
       const response=await authenticatedFetch(api);
       const data=await response.json();
       const products=Array.isArray(data.products)?data.products:[];
-      const content=$('external-products');content.replaceChildren();
-      for(const p of products)content.append(renderProduct(p,data.scope));
+      allProducts=products;
+      currentScope=data.scope;
+      renderLocations(Array.isArray(data.locations)?data.locations:[]);
+      renderProducts();
       $('external-label').textContent=data.label||'Freigabe';
       const expiry=new Date(Number(data.expires_at)*1000);
       $('external-info').textContent=(scopeNames[data.scope]||'Freigabe')+' · gültig bis '+expiry.toLocaleDateString('de-DE');

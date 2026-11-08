@@ -148,7 +148,7 @@ declare(strict_types=1);
             <div class="full"><label for="external-share-password">Zusätzliches Passwort (empfohlen)</label>
               <div class="external-password-control">
                 <input id="external-share-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Mindestens 12 Zeichen, wenn gesetzt">
-                <button id="external-share-password-toggle" type="button" class="secondary external-password-toggle" aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="external-share-password">Anzeigen</button>
+                <button id="external-share-password-toggle" type="button" class="secondary external-password-toggle" aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="external-share-password" title="Passwort anzeigen"><svg viewBox="0 0 24 24" class="gsk-eye-icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="gsk-eye-slash" d="M4 20 20 4"/></svg></button>
               </div>
             </div>
           </div>

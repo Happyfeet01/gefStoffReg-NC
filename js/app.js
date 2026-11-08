@@ -524,7 +524,7 @@ function setPasswordVisibility(inputId,buttonId,visible){
   field.type=visible?'text':'password';
   toggle.setAttribute('aria-pressed',String(visible));
   toggle.setAttribute('aria-label',visible?'Passwort verbergen':'Passwort anzeigen');
-  toggle.textContent=visible?'Verbergen':'Anzeigen';
+  toggle.title=visible?'Passwort verbergen':'Passwort anzeigen';
 }
 $('external-share-password-toggle').addEventListener('click',()=>{
   setPasswordVisibility('external-share-password','external-share-password-toggle',$('external-share-password').type==='password');

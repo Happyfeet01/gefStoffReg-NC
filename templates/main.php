@@ -139,7 +139,7 @@ declare(strict_types=1);
       </section>
       <section id="share-external-panel" class="external-share-manager share-panel" role="tabpanel" aria-labelledby="share-tab-external" hidden>
         <h3 id="external-share-title">Externe Links (ohne Nextcloud-Konto)</h3>
-        <p class="hint">Externe Links erlauben ausschließlich Lesen. Du kannst sie befristen, mit einem Passwort schützen und jederzeit widerrufen.</p>
+        <p class="hint">Externe Links erlauben ausschließlich Lesen – inklusive der aktuellen Bestände und Lagerorte der freigegebenen Produkte. Du kannst sie befristen, mit einem Passwort schützen und jederzeit widerrufen.</p>
         <form id="external-share-form">
           <div class="grid">
             <label class="full">Bezeichnung<input id="external-share-label" required maxlength="100" placeholder="z. B. Hygieneinstitut – November"></label>

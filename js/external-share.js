@@ -101,7 +101,7 @@
     const field=$('external-password'),button=$('external-password-toggle');
     const visible=field.type==='password';
     field.type=visible?'text':'password';
-    button.textContent=visible?'Verbergen':'Anzeigen';
+    button.title=visible?'Passwort verbergen':'Passwort anzeigen';
     button.setAttribute('aria-pressed',String(visible));
     button.setAttribute('aria-label',visible?'Passwort verbergen':'Passwort anzeigen');
   });
@@ -125,7 +125,7 @@
       $('external-password').value='';
       $('external-password').type='password';
       $('external-password-toggle').setAttribute('aria-pressed','false');
-      $('external-password-toggle').textContent='Anzeigen';
+      $('external-password-toggle').title='Passwort anzeigen';
       $('external-password-toggle').setAttribute('aria-label','Passwort anzeigen');
       $('external-auth').hidden=true;
     }catch(error){$('external-error').textContent=error.message;$('external-error').hidden=false;$('external-content').hidden=true}

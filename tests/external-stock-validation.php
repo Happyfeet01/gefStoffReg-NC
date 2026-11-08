@@ -28,7 +28,8 @@ foreach($invalid as $change){
   try{Stock::normalize(array_replace($input,$change));throw new LogicException('Invalid booking accepted');}
   catch(InvalidArgumentException $e){/* expected */}
 }
-$danger=['hazardous'=>true],$ordinary=['hazardous'=>false];
+$danger=['hazardous'=>true];
+$ordinary=['hazardous'=>false];
 insistStock(Stock::allowsProduct($danger,'kataster'),'Kataster cannot book hazardous stock');
 insistStock(!Stock::allowsProduct($ordinary,'kataster'),'Kataster can edit unrelated product');
 insistStock(Stock::allowsProduct($ordinary,'lager'),'Warehouse cannot edit normal stock');

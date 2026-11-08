@@ -114,7 +114,10 @@ final class ExternalShareController extends Controller {
             'apiUrl' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.read', ['token' => $token]),
             'filePattern' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.file', ['token' => $token, 'id' => '__FILE__']),
         ]);
-        $response->setHeaderTitle('Freigegebene Bestandsdaten');
+        // Nextcloud's public template otherwise adds a sign-up marketing footer.
+        // Our share page supplies its own compact header and footer.
+        $response->setHeaderTitle('Lager & Gefahrstoffe');
+        $response->setFooterVisible(false);
         return $this->noStore($response);
     }
 
@@ -123,7 +126,10 @@ final class ExternalShareController extends Controller {
     #[BruteForceProtection(action: 'gsk-external-password')]
     public function read(string $token): DataResponse {
         $entry = $this->shares->authenticate($token, $this->password());
-        if ($entry === null) return $this->deniedPublic();
+        if ($entry === null) {
+            $this->logDeniedShare($token, 'data');
+            return $this->deniedPublic();
+        }
         try {
             $includeKataster = in_array($entry['scope'], ['kataster','both'], true);
             $includeLager = in_array($entry['scope'], ['lager','both'], true);
@@ -196,7 +202,10 @@ final class ExternalShareController extends Controller {
     #[BruteForceProtection(action: 'gsk-external-password')]
     public function file(string $token, int $id): Response {
         $entry = $this->shares->authenticate($token, $this->password());
-        if ($entry === null) return $this->deniedPublic();
+        if ($entry === null) {
+            $this->logDeniedShare($token, 'data');
+            return $this->deniedPublic();
+        }
         // The stock-only view never grants access to SDB documents.
         if (!in_array($entry['scope'], ['kataster','both'], true)) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
@@ -227,6 +236,16 @@ final class ExternalShareController extends Controller {
         } catch (\Throwable $e) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
+    }
+
+    /** Record a non-sensitive reason so admins can diagnose public-link failures. */
+    private function logDeniedShare(string $token, string $endpoint): void {
+        $reason = $this->shares->active($token) === null ? 'unknown_or_expired' : 'password_mismatch';
+        $this->logger->notice('Gefahrstoffkataster: Externe Freigabe abgewiesen.', [
+            'link_id' => substr(hash('sha256', $token), 0, 12),
+            'endpoint' => $endpoint,
+            'reason' => $reason,
+        ]);
     }
 
     private function password(): string {

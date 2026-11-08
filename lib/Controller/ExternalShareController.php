@@ -139,6 +139,8 @@ final class ExternalShareController extends Controller {
                 $this->rows('gsk_file'),
                 $entry['scope']
             );
+            $fullDetails = !empty($entry['full_details']);
+            if (!$fullDetails) $projection = ExternalShareProjection::legacy($projection, $entry['scope']);
             $products = $projection['products'];
             $locations = $projection['locations'];
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
@@ -146,6 +148,7 @@ final class ExternalShareController extends Controller {
             return $this->noStore(new DataResponse([
                 'scope' => $entry['scope'], 'label' => $entry['label'], 'expires_at' => $entry['expires_at'],
                 'products' => $products, 'locations' => $locations,
+                'full_details' => $fullDetails,
             ]));
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Externe Leseansicht fehlgeschlagen.', ['type' => get_class($e)]);
@@ -163,6 +166,9 @@ final class ExternalShareController extends Controller {
             return $this->deniedPublic();
         }
         $file = $this->one('gsk_file', $id);
+        if ($file && $file['kind'] === 'photo' && empty($entry['full_details'])) {
+            return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+        }
         if (!$file || !in_array($file['kind'], ['photo','sds'], true)) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }

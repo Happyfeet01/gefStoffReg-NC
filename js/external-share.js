@@ -98,18 +98,19 @@
       button.hidden=true;
     }catch(err){error(err.message)}finally{button.disabled=false}
   }
-  function labeledValue(label,value){
-    const dt=el('dt','',label),dd=el('dd','',value);
-    return [dt,dd];
-  }
   function fieldGroup(title,items){
     const selected=items.filter(([,value])=>value!==undefined&&value!==null&&String(value).trim()!=='');
     if(!selected.length)return null;
-    const group=el('section','external-detail-section');
+    const group=el('section','external-detail-section external-info-box');
     group.append(el('h4','',title));
-    const dl=el('dl','external-fields');
-    for(const [label,value] of selected)dl.append(...labeledValue(label,value));
-    group.append(dl);
+    const fields=el('div','external-field-grid');
+    for(const [label,value] of selected){
+      const row=el('div','external-field-row');
+      row.append(el('span','external-field-label',label));
+      row.append(el('span','external-field-value',value));
+      fields.append(row);
+    }
+    group.append(fields);
     return group;
   }
   function linkGroup(p,includeSafety){
@@ -153,18 +154,22 @@
   }
   function bookingForm(p) {
     const section=el('section','external-detail-section external-booking-section');
-    section.append(el('h4','','Bestand buchen'));
-    const info=el('p','external-muted','Zugang, Entnahme oder Bestandskorrektur. Die Buchung wird deiner persönlichen Freigabe zugeordnet.');
+    section.append(el('h4','','Bestand ändern'));
+    const info=el('p','external-muted','Was wurde eingelagert oder entnommen?');
     section.append(info);
     const form=el('form','external-booking-form');
     const locationLabel=el('label','','Lagerort');
     const select=el('select','external-booking-location');
     select.required=true;
     const options=allowedLocations.slice().sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    const preferred=(p.stock||[]).find(row=>Number(row.packs)>0);
     for(const loc of options){
       const option=el('option','',loc.name);
       option.value=String(loc.id);
       select.append(option);
+    }
+    if(preferred&&options.some(loc=>Number(loc.id)===Number(preferred.location_id))){
+      select.value=String(preferred.location_id);
     }
     locationLabel.append(select);
     const actionLabel=el('label','','Buchung');
@@ -173,7 +178,7 @@
       const option=el('option','',title);option.value=value;action.append(option);
     }
     actionLabel.append(action);
-    const quantityLabel=el('label','','Gebindeanzahl');
+    const quantityLabel=el('label','','Menge in Gebinden');
     const qty=el('input','external-booking-quantity');
     qty.type='number';qty.min='0';qty.step='0.001';qty.required=true;qty.placeholder='z. B. 2';
     quantityLabel.append(qty);
@@ -188,7 +193,7 @@
       current.textContent='Aktuell: '+format(count)+' Gebinde';
     };
     select.addEventListener('change',updateCurrent);
-    const submit=el('button','external-booking-submit','Bestand buchen');
+    const submit=el('button','external-booking-submit','Änderung speichern');
     submit.type='submit';
     form.append(locationLabel,actionLabel,quantityLabel,noteLabel,current,submit);
     updateCurrent();
@@ -256,8 +261,14 @@
     card.append(stock);
     }
 
+    if(stockEditor){
+      const quick=el('details','external-quick-booking');
+      quick.append(el('summary','external-quick-booking-toggle','Bestand ändern'));
+      quick.append(bookingForm(p));
+      card.append(quick);
+    }
     const details=el('details','external-product-details');
-    const summary=el('summary','external-detail-toggle','Produktdetails anzeigen');
+    const summary=el('summary','external-detail-toggle','Weitere Produktinfos');
     details.append(summary);
     const content=el('div','external-detail-content');
     const general=fieldGroup('Stammdaten',[
@@ -294,7 +305,6 @@
     }
     const documents=linkGroup(p,includeSafety);
     if(documents)content.append(documents);
-    if(stockEditor)content.append(bookingForm(p));
     details.append(content);card.append(details);
     return card;
   }
@@ -357,9 +367,9 @@
       $('external-access-info').textContent=stockEditor?'Bestände bearbeiten · Persönlicher Zugang: '+guestRecipient+' · Keine Änderung von Stammdaten oder Gefahrstoffangaben':'Nur Lesezugriff';
       $('external-access-badge').textContent=stockEditor?'Bestände bearbeiten':'Nur Lesezugriff';
       $('external-footer-access').textContent=stockEditor?'Bestandsbuchung erlaubt':'Nur Lesezugriff';
-      $('external-readonly-explainer').textContent=fullDetails
-        ?'Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.'
-        :'Dies ist eine ältere, eingeschränkte Freigabe. Für sämtliche Bestände, Lagerorte und Fotos muss der Verwalter einen neuen Leselink erstellen.';
+      $('external-readonly-explainer').hidden=fullDetails;
+      $('external-readonly-explainer').textContent=fullDetails?''
+        :'Ältere Freigabe: Einige Angaben und Dateien sind hier nicht verfügbar.';
       renderLocations(allowedLocations);
       renderProducts();
       $('external-label').textContent=data.label||'Freigabe';

@@ -128,6 +128,28 @@ declare(strict_types=1);
         <p class="hint">Lagerbearbeiter dürfen Bestände buchen und ungefährliche Verbrauchsmaterialien pflegen. Gefahrstoffangaben und Freigaben sind gesondert geschützt.</p>
         <div class="share-form-actions"><button type="submit" class="primary">Freigabe speichern</button></div>
       </form>
+      <section id="external-share-manager" class="external-share-manager" aria-labelledby="external-share-title">
+        <h3 id="external-share-title">Externe Links (ohne Nextcloud-Konto)</h3>
+        <p class="hint">Externe Links erlauben ausschließlich Lesen. Du kannst sie befristen, mit einem Passwort schützen und jederzeit widerrufen.</p>
+        <form id="external-share-form">
+          <div class="grid">
+            <label class="full">Bezeichnung<input id="external-share-label" required maxlength="100" placeholder="z. B. Hygieneinstitut – November"></label>
+            <label>Freigabebereich<select id="external-share-scope"><option value="kataster">Nur Gefahrstoffkataster</option><option value="lager">Nur Lager</option><option value="both">Lager und Gefahrstoffkataster</option></select></label>
+            <label>Gültigkeit<select id="external-share-days"><option value="1">1 Tag</option><option value="7" selected>7 Tage</option><option value="30">30 Tage</option></select></label>
+            <label class="full">Zusätzliches Passwort (empfohlen)<input id="external-share-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Mindestens 12 Zeichen, wenn gesetzt"></label>
+          </div>
+          <div class="share-form-actions"><button class="primary" type="submit">Externen Leselink erstellen</button></div>
+        </form>
+        <div id="external-share-created" class="external-share-created" hidden>
+          <p><strong>Freigabelink erstellt</strong> – nur jetzt vollständig sichtbar. Link und Passwort am besten getrennt übermitteln.</p>
+          <div class="external-share-copy">
+            <input id="external-share-created-url" type="text" readonly aria-label="Neu erstellter Freigabelink">
+            <button id="external-share-copy" type="button" class="secondary">Link kopieren</button>
+          </div>
+        </div>
+        <h4>Aktive und abgelaufene Links</h4>
+        <div id="external-share-list" aria-live="polite"></div>
+      </section>
       <h3 class="share-heading">Aktuelle Freigaben</h3>
       <div id="share-list" aria-live="polite"></div>
       <p class="hint">Die bisherige Nextcloud-Gruppe freibad-gefahrstoffe behält vorerst ihre bisherigen Rechte. Ihre Mitgliedschaft wird weiterhin in Nextcloud verwaltet. Die Freigaben gelten derzeit für den gesamten App-Bestand, noch nicht pro Standort.</p>

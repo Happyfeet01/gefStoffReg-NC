@@ -35,7 +35,8 @@ const make = id => ({
 for (const id of ['gsk-external','external-password-toggle','external-password','external-unlock',
   'external-error','external-auth','external-content','external-products','external-label',
   'external-info','external-count','external-empty','external-search',
-  'external-location-filter','external-locations','external-locations-count']) elements[id] = make(id);
+  'external-location-filter','external-locations','external-locations-count',
+  'external-location-overview','external-location-filter-wrap','external-readonly-explainer']) elements[id] = make(id);
 elements.submit=make('submit');
 const calls=[];
 const context={

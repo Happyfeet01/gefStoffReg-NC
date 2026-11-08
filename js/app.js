@@ -502,7 +502,7 @@ async function loadExternalLinks(){
     const item=el('div','share-row');
     const expiry=new Date(Number(link.expires_at)*1000).toLocaleDateString('de-DE');
     const status=link.expired?'Abgelaufen':'Gültig bis '+expiry;
-    item.append(el('div','',`${link.label} · ${externalScopeLabels[link.scope]||link.scope} · ${status} · ${link.password_protected?'Passwortschutz':'Ohne Passwort'}`));
+    item.append(el('div','',`${link.label} · ${externalScopeLabels[link.scope]||link.scope} · ${status} · ${link.password_protected?'Passwortschutz':'Ohne Passwort'} · ${link.full_details?'Vollständige Leseansicht':'Ältere eingeschränkte Ansicht'}`));
     const revoke=button('Widerrufen',async()=>{
       revoke.disabled=true;
       try{

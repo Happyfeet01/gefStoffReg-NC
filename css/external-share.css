@@ -316,3 +316,79 @@ body#body-public {
 }
 #gsk-external .external-password-toggle .gsk-eye-slash {display:none}
 #gsk-external .external-password-toggle[aria-pressed="true"] .gsk-eye-slash {display:block}
+
+
+/*
+ * Nextcloud 35's public shell (core/css/guest.scss and public.scss) lays out
+ * body as a vertically centered flex container and fixes every footer to the
+ * viewport bottom. This share page has a full product list, not a login form.
+ * Restore DOCUMENT scrolling so iOS Safari reaches all products.
+ * This stylesheet is registered only for our public share view.
+ */
+html:has(#gsk-external) {
+  height:auto !important;
+  min-height:100% !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  overscroll-behavior-y:auto;
+}
+body#body-public:has(#gsk-external) {
+  display:block !important;
+  height:auto !important;
+  min-height:100dvh !important;
+  max-height:none !important;
+  justify-content:initial !important;
+  align-items:initial !important;
+  overflow-x:hidden !important;
+  overflow-y:visible !important;
+  position:static !important;
+  overscroll-behavior-y:auto;
+  touch-action:pan-y;
+}
+body#body-public #content.app-gefahrstoffkataster:has(#gsk-external) {
+  display:block !important;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  flex:none !important;
+  overflow:visible !important;
+  padding:0 !important;
+}
+body#body-public #gsk-external {
+  display:flex;
+  flex-direction:column;
+  height:auto !important;
+  min-height:100dvh;
+  max-height:none !important;
+  overflow:visible !important;
+}
+body#body-public #gsk-external .external-page {
+  flex:1 0 auto;
+  min-height:0;
+  height:auto;
+  max-height:none;
+  overflow:visible;
+}
+body#body-public #gsk-external .external-products,
+body#body-public #gsk-external .external-card {
+  min-height:0;
+  max-height:none;
+  overflow:visible;
+}
+/* Override #body-public footer { position:fixed } from Nextcloud public.scss. */
+body#body-public #gsk-external > footer.external-page-footer {
+  position:static !important;
+  inset:auto !important;
+  inset-inline-start:auto !important;
+  inset-inline-end:auto !important;
+  left:auto !important;
+  right:auto !important;
+  bottom:auto !important;
+  top:auto !important;
+  transform:none !important;
+  width:100% !important;
+  max-width:none !important;
+  margin:0 !important;
+  flex:0 0 auto;
+  padding-block-end:max(18px,env(safe-area-inset-bottom));
+}

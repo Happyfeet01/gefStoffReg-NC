@@ -5,6 +5,7 @@ namespace OCA\Gefahrstoffkataster\Controller;
 
 use OCA\Gefahrstoffkataster\Service\AccessPolicy;
 use OCA\Gefahrstoffkataster\Service\ExternalShareService;
+use OCA\Gefahrstoffkataster\Service\ExternalShareProjection;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -131,83 +132,15 @@ final class ExternalShareController extends Controller {
             return $this->deniedPublic();
         }
         try {
-            // A share narrows WHICH products are readable, not the stock detail
-            // displayed for a permitted product. The Kataster view must show
-            // quantities and storage locations just like the internal view.
-            $scope = $entry['scope'];
-            $hazardDetails = $scope !== 'lager';
-            $allLocations = [];
-            foreach ($this->rows('gsk_location') as $place) {
-                $allLocations[(int)$place['id']] = (string)$place['name'];
-            }
-            $stock = [];
-            foreach ($this->rows('gsk_stock') as $row) {
-                $pid = (int)$row['product_id'];
-                $lid = (int)$row['location_id'];
-                $stock[$pid][] = [
-                    'location_id' => $lid,
-                    'location' => $allLocations[$lid] ?? 'Unbekannter Lagerort',
-                    'packs' => (int)$row['milli'] / 1000,
-                ];
-            }
-            $photos = [];
-            $sds = [];
-            foreach ($this->rows('gsk_file') as $file) {
-                $pid = (int)$file['product_id'];
-                if ($file['kind'] === 'photo') {
-                    $photos[$pid][] = [
-                        'id' => (int)$file['id'],
-                        'filename' => (string)$file['filename'],
-                    ];
-                } elseif ($file['kind'] === 'sds') {
-                    $fid = (int)$file['id'];
-                    if (!isset($sds[$pid]) || $fid > $sds[$pid]) $sds[$pid] = $fid;
-                }
-            }
-            $products = [];
-            $usedLocationIds = [];
-            foreach ($this->rows('gsk_product') as $row) {
-                $p = json_decode($row['details'], true);
-                if (!is_array($p)) continue;
-                if ($scope === 'kataster' && empty($p['hazardous'])) continue;
-                $id = (int)$row['id'];
-                $item = [
-                    'id' => $id,
-                    'name' => (string)($p['name'] ?? ''),
-                    'manufacturer' => (string)($p['manufacturer'] ?? ''),
-                    'article' => (string)($p['article'] ?? ''),
-                    'ean' => (string)($p['ean'] ?? ''),
-                    'category' => (string)($p['category'] ?? ''),
-                    'material_kind' => (string)($p['material_kind'] ?? 'unclassified'),
-                    'use_area' => (string)($p['use_area'] ?? ''),
-                    'hazardous' => !empty($p['hazardous']),
-                    'pack_size' => (float)($p['pack_size'] ?? 0),
-                    'unit' => (string)($p['unit'] ?? ''),
-                    'storage_note' => (string)($p['storage_note'] ?? ''),
-                    'source_url' => (string)($p['source_url'] ?? ''),
-                    'pmb_url' => (string)($p['pmb_url'] ?? ''),
-                    'stock' => $stock[$id] ?? [],
-                    'photos' => $photos[$id] ?? [],
-                ];
-                foreach ($item['stock'] as $stockEntry) {
-                    $usedLocationIds[$stockEntry['location_id']] = true;
-                }
-                if ($hazardDetails && $item['hazardous']) {
-                    foreach (['ufi','classification','ghs','signal','h_statements','sds_date','checked_at','sds_url'] as $field) {
-                        $item[$field] = (string)($p[$field] ?? '');
-                    }
-                    $item['sds_id'] = $sds[$id] ?? null;
-                }
-                $products[] = $item;
-            }
-            // Kataster-only links expose only locations where visible hazardous
-            // products are stocked. Warehouse/both links include all locations.
-            $locations = [];
-            foreach ($allLocations as $id => $name) {
-                if ($scope !== 'kataster' || isset($usedLocationIds[$id])) {
-                    $locations[] = ['id' => $id, 'name' => $name];
-                }
-            }
+            $projection = ExternalShareProjection::build(
+                $this->rows('gsk_product'),
+                $this->rows('gsk_location'),
+                $this->rows('gsk_stock'),
+                $this->rows('gsk_file'),
+                $entry['scope']
+            );
+            $products = $projection['products'];
+            $locations = $projection['locations'];
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
                 ['link_id' => substr(hash('sha256', $token), 0, 12), 'scope' => $entry['scope']]);
             return $this->noStore(new DataResponse([
@@ -236,21 +169,10 @@ final class ExternalShareController extends Controller {
         $product = $this->one('gsk_product', (int)$file['product_id']);
         if (!$product) return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         $p = json_decode($product['details'], true);
-        if (!is_array($p) || ($entry['scope'] === 'kataster' && empty($p['hazardous']))) {
+        if (!is_array($p) || !ExternalShareProjection::allowsFile(
+            $file, $p, $this->rows('gsk_file'), $entry['scope']
+        )) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
-        }
-        if ($file['kind'] === 'sds') {
-            // Warehouse-only shares do not reveal safety documents.
-            if ($entry['scope'] === 'lager' || empty($p['hazardous'])) {
-                return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
-            }
-            // Expose only the latest SDB as referenced by the public listing.
-            foreach ($this->rows('gsk_file') as $candidate) {
-                if ($candidate['kind'] === 'sds' && (int)$candidate['product_id'] === (int)$file['product_id']
-                    && (int)$candidate['id'] > $id) {
-                    return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
-                }
-            }
         }
         // Allow only image formats already accepted by the internal upload API.
         $photoMimes = ['image/jpeg','image/png','image/webp','image/heic','image/heif'];

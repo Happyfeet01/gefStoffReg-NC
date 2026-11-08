@@ -34,7 +34,7 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
         <label for="external-password">Freigabepasswort <span class="external-optional">(falls vorhanden)</span></label>
         <div class="external-password-control">
           <input id="external-password" name="password" type="password" autocomplete="off" placeholder="Passwort eingeben">
-          <button type="button" id="external-password-toggle" class="external-password-toggle" aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="external-password">Anzeigen</button>
+          <button type="button" id="external-password-toggle" class="external-password-toggle" aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="external-password" title="Passwort anzeigen"><svg viewBox="0 0 24 24" class="gsk-eye-icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="gsk-eye-slash" d="M4 20 20 4"/></svg></button>
         </div>
         <p class="external-field-hint">Kein Passwort erhalten? Lass das Feld einfach leer.</p>
         <button type="submit">Freigabe anzeigen <span aria-hidden="true">→</span></button>

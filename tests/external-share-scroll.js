@@ -53,7 +53,7 @@ async function check(browser,viewport){
     if(target.pathname==='/app.js')return reply(appJs,'text/javascript');
     if(target.pathname==='/data')return reply(JSON.stringify({
       scope:'kataster',label:'Test Flieden',expires_at:1799999999,products,
-      locations:[{id:1,name:'Chemieraum'}],
+      locations:[{id:1,name:'Chemieraum'}],full_details:true,
     }),'application/json');
     return route.fulfill({status:404,body:'not found'});
   });

@@ -222,3 +222,14 @@
 #gsk-app #external-share-created-url {flex:1;min-width:180px}
 #gsk-app .external-share-created {padding:15px;margin:12px 0;border:1px solid var(--gsk-border);border-radius:9px;background:var(--gsk-soft)}
 #gsk-app .external-share-created p {margin:0 0 10px}
+
+
+#gsk-app .share-tabs {display:flex;gap:8px;border-bottom:1px solid var(--gsk-border);margin:0 0 18px}
+#gsk-app .share-tabs button {border:0;background:transparent;color:var(--gsk-muted);font:inherit;padding:12px 18px;border-bottom:3px solid transparent;min-height:44px;border-radius:0}
+#gsk-app .share-tabs button[aria-selected="true"] {border-bottom-color:var(--gsk-primary);color:var(--gsk-text);font-weight:700}
+#gsk-app .share-tabs button:focus-visible {outline:2px solid var(--gsk-primary);outline-offset:-2px}
+#gsk-app .share-panel[hidden] {display:none}
+#gsk-app #share-external-panel {border-top:0;margin:0;padding:0 0 22px}
+@media(max-width:720px) {
+  #gsk-app .share-tabs button {flex:1;padding:10px 6px;font-size:14px}
+}

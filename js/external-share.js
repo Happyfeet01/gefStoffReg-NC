@@ -49,54 +49,189 @@
       return a;
     }catch{return null}
   }
-  async function download(id,name,button){
+  const photoUrls=[];
+  let allProducts=[];
+  let currentScope='kataster';
+  window.addEventListener('pagehide',()=>photoUrls.forEach(url=>URL.revokeObjectURL(url)));
+
+  function error(message) {
+    $('external-error').textContent=message;
+    $('external-error').hidden=false;
+  }
+  function safeFilename(value) {
+    return String(value||'Dokument').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,90);
+  }
+  async function download(id,name,button,isPhoto=false){
     button.disabled=true;
     try{
       if(!Number.isInteger(id)||id<=0)throw new Error('Datei-ID ungültig.');
-      const url=filePattern.replace('__FILE__',String(id));
-      const response=await authenticatedFetch(url);
+      const response=await authenticatedFetch(filePattern.replace('__FILE__',String(id)));
       const blob=await response.blob();
       const local=URL.createObjectURL(blob);
       const a=document.createElement('a');
-      a.href=local;a.download='SDB-'+String(name).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,60)+'.pdf';
+      a.href=local;
+      a.download=isPhoto?safeFilename(name):'SDB-'+safeFilename(name)+'.pdf';
       document.body.append(a);a.click();a.remove();
       window.setTimeout(()=>URL.revokeObjectURL(local),30000);
-    }catch(err){$('external-error').textContent=err.message;$('external-error').hidden=false}
-    finally{button.disabled=false}
+    }catch(err){error(err.message)}finally{button.disabled=false}
   }
-  function renderProduct(p,scope){
-    const card=el('article','external-card');
-    const title=el('h3','',p.name||'Unbenanntes Produkt');
-    card.append(title);
-    const subtitle=[p.manufacturer,p.category,kindNames[p.material_kind]||kindNames.unclassified].filter(Boolean);
-    if(subtitle.length)card.append(el('p','external-muted',subtitle.join(' · ')));
-    if(p.hazardous)card.append(el('span','external-badge','Gefahrstoff'));
-    if(scope!=='kataster'){
-      const stock=el('div','external-stock');
-      const qty=(p.stock||[]).reduce((sum,item)=>sum+Number(item.packs||0),0);
-      stock.append(el('strong','',format(qty*Number(p.pack_size||0))+' '+(p.unit||'')));
-      for(const item of p.stock||[])stock.append(el('p','',item.location+': '+format(item.packs)+' Gebinde'));
-      card.append(stock);
-    }
-    if(scope!=='lager'&&p.hazardous){
-      const safety=el('dl','external-safety');
-      for(const [label,value] of [['Einstufung',p.classification],['GHS',p.ghs],['Signalwort',p.signal],['H-Sätze',p.h_statements],['SDB-Datum',p.sds_date]]){
-        if(!value)continue;
-        const dt=el('dt','',label),dd=el('dd','',value);
-        safety.append(dt,dd);
+  async function previewPhoto(id,name,button,target){
+    button.disabled=true;
+    try{
+      if(!Number.isInteger(id)||id<=0)throw new Error('Foto-ID ungültig.');
+      const response=await authenticatedFetch(filePattern.replace('__FILE__',String(id)));
+      const blob=await response.blob();
+      if(!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(blob.type)) {
+        throw new Error('Fotoformat nicht unterstützt.');
       }
-      card.append(safety);
-      const links=el('div','external-actions');
+      const local=URL.createObjectURL(blob);photoUrls.push(local);
+      const img=el('img','external-photo',undefined);
+      img.src=local;img.alt=name||'Produktfoto';img.loading='lazy';
+      target.replaceChildren(img);
+      button.hidden=true;
+    }catch(err){error(err.message)}finally{button.disabled=false}
+  }
+  function labeledValue(label,value){
+    const dt=el('dt','',label),dd=el('dd','',value);
+    return [dt,dd];
+  }
+  function fieldGroup(title,items){
+    const selected=items.filter(([,value])=>value!==undefined&&value!==null&&String(value).trim()!=='');
+    if(!selected.length)return null;
+    const group=el('section','external-detail-section');
+    group.append(el('h4','',title));
+    const dl=el('dl','external-fields');
+    for(const [label,value] of selected)dl.append(...labeledValue(label,value));
+    group.append(dl);
+    return group;
+  }
+  function linkGroup(p,includeSafety){
+    const section=el('section','external-detail-section');
+    section.append(el('h4','','Quellen und Dokumente'));
+    const links=el('div','external-actions');
+    for(const [url,label] of [[p.source_url,'Herstellerseite'],[p.pmb_url,'Produktmerkblatt']]){
+      if(url){const a=safeExternalLink(url,label);if(a)links.append(a)}
+    }
+    if(includeSafety&&p.hazardous){
+      if(p.sds_url){const a=safeExternalLink(p.sds_url,'SDB beim Hersteller');if(a)links.append(a)}
       if(Number.isInteger(p.sds_id)&&p.sds_id>0){
-        const b=el('button','external-download','SDB als PDF herunterladen');
+        const b=el('button','external-download','Sicherheitsdatenblatt herunterladen');
         b.type='button';b.addEventListener('click',()=>download(p.sds_id,p.name,b));
         links.append(b);
       }
-      if(p.sds_url){const a=safeExternalLink(p.sds_url,'SDB beim Hersteller');if(a)links.append(a)}
-      if(links.childElementCount)card.append(links);
     }
+    if(links.childElementCount)section.append(links);
+    const photos=Array.isArray(p.photos)?p.photos:[];
+    if(photos.length){
+      const group=el('div','external-photo-group');
+      group.append(el('h5','',photos.length===1?'Produktfoto':'Produktfotos ('+photos.length+')'));
+      for(const photo of photos){
+        if(!Number.isInteger(photo.id))continue;
+        const photoBlock=el('div','external-photo-row');
+        const filename=String(photo.filename||'Produktfoto');
+        photoBlock.append(el('span','external-muted',filename));
+        const controls=el('div','external-actions');
+        const preview=el('div','external-photo-preview');
+        const show=el('button','external-secondary-button','Ansehen');
+        show.type='button';show.addEventListener('click',()=>previewPhoto(photo.id,filename,show,preview));
+        const save=el('button','external-secondary-button','Herunterladen');
+        save.type='button';save.addEventListener('click',()=>download(photo.id,filename,save,true));
+        controls.append(show,save);
+        photoBlock.append(controls,preview);
+        group.append(photoBlock);
+      }
+      section.append(group);
+    }
+    return section.childElementCount>1?section:null;
+  }
+  function renderProduct(p,scope){
+    const includeSafety=scope!=='lager';
+    const card=el('article','external-card');
+    const head=el('div','external-product-heading');
+    head.append(el('h3','',p.name||'Unbenanntes Produkt'));
+    if(p.hazardous)head.append(el('span','external-badge','Gefahrstoff'));
+    card.append(head);
+    const subtitle=[p.manufacturer,p.category,kindNames[p.material_kind]||kindNames.unclassified].filter(Boolean);
+    if(subtitle.length)card.append(el('p','external-muted',subtitle.join(' · ')));
+    const rows=Array.isArray(p.stock)?p.stock:[];
+    const packs=rows.reduce((sum,r)=>sum+Number(r.packs||0),0);
+    const size=Number(p.pack_size||0);
+    const stock=el('div','external-stock');
+    const amount=size>0?format(packs*size)+' '+(p.unit||''):'';
+    stock.append(el('strong','','Bestand: '+format(packs)+' Gebinde'+(amount?' · '+amount:'')));
+    const occupied=rows.filter(r=>Number(r.packs)>0);
+    stock.append(el('p','',occupied.length?occupied.map(r=>r.location).join(' · '):'Kein aktueller Bestand hinterlegt'));
+    card.append(stock);
+
+    const details=el('details','external-product-details');
+    const summary=el('summary','external-detail-toggle','Produktdetails anzeigen');
+    details.append(summary);
+    const content=el('div','external-detail-content');
+    const general=fieldGroup('Stammdaten',[
+      ['Produktname',p.name],['Hersteller',p.manufacturer],['Artikelnummer',p.article],
+      ['EAN / GTIN',p.ean],['Materialart',kindNames[p.material_kind]||kindNames.unclassified],
+      ['Kategorie',p.category],['Einsatzbereich',p.use_area],
+      ['Gebindegröße',size>0?format(size)+' '+(p.unit||''):''],
+      ['Gefahrstoff',p.hazardous?'Ja':'Nein'],
+      ['Lagerbedingungen / Hinweise',p.storage_note],
+    ]);
+    if(general)content.append(general);
+    const store=el('section','external-detail-section');
+    store.append(el('h4','','Lagerorte und Bestände'));
+    if(rows.length){
+      const list=el('div','external-stock-list');
+      for(const r of rows){
+        const row=el('div','external-stock-row');
+        row.append(el('span','',r.location||'Unbekannter Lagerort'));
+        const qty=el('strong','',format(Number(r.packs||0))+' Gebinde'+(size>0?' · '+format(Number(r.packs||0)*size)+' '+(p.unit||''):''));
+        row.append(qty);list.append(row);
+      }
+      store.append(list);
+    }else{store.append(el('p','external-muted','Kein Bestand für dieses Produkt hinterlegt.'))}
+    content.append(store);
+    if(includeSafety&&p.hazardous){
+      const safety=fieldGroup('Gefahrstoffangaben',[
+        ['UFI',p.ufi],['Einstufung',p.classification],['GHS-Codes',p.ghs],
+        ['Signalwort',p.signal],['H- / EUH-Sätze',p.h_statements],
+        ['Sicherheitsdatenblatt vom',p.sds_date],['Fachlich geprüft am',p.checked_at],
+      ]);
+      if(safety)content.append(safety);
+    }
+    const documents=linkGroup(p,includeSafety);
+    if(documents)content.append(documents);
+    details.append(content);card.append(details);
     return card;
   }
+  function renderProducts(){
+    const q=String($('external-search')?.value||'').trim().toLocaleLowerCase('de');
+    const location=String($('external-location-filter')?.value||'');
+    const filtered=allProducts.filter(p=>{
+      if(location&&!(p.stock||[]).some(row=>String(row.location_id)===location))return false;
+      if(!q)return true;
+      return [p.name,p.manufacturer,p.article,p.ean,p.category,p.use_area,p.material_kind]
+        .some(value=>String(value||'').toLocaleLowerCase('de').includes(q));
+    });
+    const area=$('external-products');area.replaceChildren();
+    for(const p of filtered)area.append(renderProduct(p,currentScope));
+    $('external-empty').hidden=filtered.length>0;
+    $('external-empty').textContent=allProducts.length?'Keine Produkte für diese Filter.':'Keine Produkte für diese Freigabe vorhanden.';
+    $('external-count').textContent=filtered.length===allProducts.length
+      ?allProducts.length+' Produkte'
+      :filtered.length+' von '+allProducts.length+' Produkten';
+  }
+  function renderLocations(locations){
+    const area=$('external-locations'),select=$('external-location-filter');
+    area.replaceChildren();
+    select.replaceChildren(new Option('Alle Lagerorte',''));
+    for(const loc of locations){
+      area.append(el('span','external-location-tag',loc.name));
+      select.add(new Option(loc.name,String(loc.id)));
+    }
+    $('external-locations-count').textContent=locations.length+' Lagerorte';
+    if(!locations.length)area.append(el('p','external-muted','Keine Lagerorte in diesem Bereich hinterlegt.'));
+  }
+  $('external-search').addEventListener('input',renderProducts);
+  $('external-location-filter').addEventListener('change',renderProducts);
   $('external-password-toggle').addEventListener('click',()=>{
     const field=$('external-password'),button=$('external-password-toggle');
     const visible=field.type==='password';

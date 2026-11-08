@@ -6,6 +6,7 @@ namespace OCA\Gefahrstoffkataster\Controller;
 use OCA\Gefahrstoffkataster\Service\AccessPolicy;
 use OCA\Gefahrstoffkataster\Service\ExternalShareService;
 use OCA\Gefahrstoffkataster\Service\ExternalShareProjection;
+use OCA\Gefahrstoffkataster\Service\ExternalStockBookingService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -29,6 +30,7 @@ final class ExternalShareController extends Controller {
         string $appName,
         IRequest $request,
         private ExternalShareService $shares,
+        private ExternalStockBookingService $stockBookings,
         private AccessPolicy $access,
         private IDBConnection $db,
         private IAppData $appData,
@@ -68,13 +70,15 @@ final class ExternalShareController extends Controller {
             $days = $input['days'] ?? null;
             $password = $input['password'] ?? null;
             $revision = $input['revision'] ?? null;
-            if (!is_string($label) || !is_string($scope) || !is_int($days) || !is_string($password) || !is_string($revision)) {
+            $access = $input['access'] ?? 'read';
+            $recipient = $input['recipient'] ?? '';
+            if (!is_string($label) || !is_string($scope) || !is_int($days) || !is_string($password) || !is_string($revision) || !is_string($access) || !is_string($recipient)) {
                 throw new \InvalidArgumentException('Eingabe ungültig.');
             }
             $actor = $this->session->getUser()->getUID();
-            $link = $this->shares->create($label, $scope, $days, $password, $actor, $revision);
-            $this->logger->info('Gefahrstoffkataster: Externer Leselink erstellt.',
-                ['actor' => $actor, 'link_id' => substr($link['id'], 0, 12), 'scope' => $scope]);
+            $link = $this->shares->create($label, $scope, $days, $password, $actor, $revision, $access, $recipient);
+            $this->logger->info('Gefahrstoffkataster: Externe Freigabe erstellt.',
+                ['actor' => $actor, 'link_id' => substr($link['id'], 0, 12), 'scope' => $scope, 'access' => $access, 'recipient' => $recipient]);
             return new DataResponse([
                 'url' => $this->urls->linkToRouteAbsolute('gefahrstoffkataster.external_share.view', ['token' => $link['token']]),
                 'expires_at' => $link['expires_at'], 'links' => $this->shares->listing(),
@@ -114,6 +118,7 @@ final class ExternalShareController extends Controller {
         $response = new PublicTemplateResponse('gefahrstoffkataster', 'external-share', [
             'apiUrl' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.read', ['token' => $token]),
             'filePattern' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.file', ['token' => $token, 'id' => '__FILE__']),
+            'stockUrl' => $this->urls->linkToRoute('gefahrstoffkataster.external_share.stock', ['token' => $token]),
         ]);
         // Nextcloud's public template otherwise adds a sign-up marketing footer.
         // Our share page supplies its own compact header and footer.
@@ -143,16 +148,82 @@ final class ExternalShareController extends Controller {
             if (!$fullDetails) $projection = ExternalShareProjection::legacy($projection, $entry['scope']);
             $products = $projection['products'];
             $locations = $projection['locations'];
+            // Editors may receive stock at any existing location, including
+            // locations with no stock yet; read-only Kataster remains narrowed.
+            if ($fullDetails && ($entry['access'] ?? 'read') === 'stock_editor'
+                && !empty($entry['password_hash']) && $entry['scope'] === 'kataster') {
+                $locations = array_map(static fn(array $row): array => [
+                    'id'=>(int)$row['id'],'name'=>(string)$row['name']
+                ], $this->rows('gsk_location'));
+            }
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
                 ['link_id' => substr(hash('sha256', $token), 0, 12), 'scope' => $entry['scope']]);
             return $this->noStore(new DataResponse([
                 'scope' => $entry['scope'], 'label' => $entry['label'], 'expires_at' => $entry['expires_at'],
                 'products' => $products, 'locations' => $locations,
                 'full_details' => $fullDetails,
+                'access' => (($entry['access'] ?? 'read') === 'stock_editor' && !empty($entry['password_hash']) && $fullDetails) ? 'stock_editor' : 'read',
+                'recipient' => (($entry['access'] ?? '') === 'stock_editor') ? (string)($entry['recipient'] ?? '') : '',
             ]));
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Externe Leseansicht fehlgeschlagen.', ['type' => get_class($e)]);
             return $this->fail('Freigabe kann derzeit nicht geladen werden.', Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+    /**
+     * External writes are deliberately limited to stock movements, never
+     * product master data or safety metadata. No Nextcloud session is required.
+     */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    #[BruteForceProtection(action: 'gsk-external-stock')]
+    public function stock(string $token): DataResponse {
+        // A non-simple same-origin XHR header prevents ordinary cross-site forms
+        // from exercising a bearer link; browsers cannot cross-origin preflight
+        // this custom header without a deliberate CORS grant.
+        if ($this->request->getHeader('X-GSK-Stock-Action') !== '1') {
+            return $this->noStore($this->fail('Ungültiger Buchungsaufruf.', Http::STATUS_FORBIDDEN));
+        }
+        $entry = $this->shares->authenticate($token, $this->password());
+        if ($entry === null) {
+            $this->logDeniedShare($token, 'stock');
+            return $this->deniedPublic();
+        }
+        if (($entry['access'] ?? 'read') !== 'stock_editor'
+            || empty($entry['password_hash']) || empty($entry['full_details'])
+            || mb_strlen(trim((string)($entry['recipient'] ?? ''))) < 2) {
+            return $this->noStore($this->fail('Keine Berechtigung zur Bestandsbuchung.', Http::STATUS_FORBIDDEN));
+        }
+        try {
+            $raw=$this->request->getParam('booking','');
+            if (!is_string($raw) || strlen($raw)>2048) {
+                throw new \InvalidArgumentException('Ungültige Buchungsdaten.');
+            }
+            $input=json_decode($raw,true,8,JSON_THROW_ON_ERROR);
+            if (!is_array($input) || array_is_list($input)) {
+                throw new \InvalidArgumentException('Buchung muss ein JSON-Objekt sein.');
+            }
+            // The logged actor identifies an individual invitation, not an
+            // independently verified human identity. Never log the secret token.
+            $id=substr(hash('sha256',$token),0,16);
+            $actor='external:'.$id;
+            $change=$this->stockBookings->book($input,(string)$entry['scope'],$actor);
+            $this->logger->info('Gefahrstoffkataster: Externe Bestandsbuchung.', [
+                'link_id'=>$id,'recipient'=>(string)$entry['recipient'],'action'=>(string)$input['action'],
+                'product_id'=>(int)$input['product_id'],'location_id'=>(int)$input['location_id'],
+            ]);
+            return $this->noStore(new DataResponse($change));
+        } catch (\DomainException $e) {
+            return $this->noStore($this->fail('Produkt ist nicht für diese Freigabe zugelassen.',Http::STATUS_FORBIDDEN));
+        } catch (\InvalidArgumentException|\JsonException|\TypeError $e) {
+            return $this->noStore($this->fail($e->getMessage(),Http::STATUS_BAD_REQUEST));
+        } catch (\RuntimeException $e) {
+            return $this->noStore($this->fail('Bestand hat sich geändert. Bitte neu laden.',Http::STATUS_CONFLICT));
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Externe Bestandsbuchung fehlgeschlagen.', ['type'=>get_class($e)]);
+            return $this->noStore($this->fail('Buchung konnte nicht gespeichert werden.',Http::STATUS_INTERNAL_SERVER_ERROR));
         }
     }
 

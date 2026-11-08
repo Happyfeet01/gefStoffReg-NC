@@ -139,12 +139,18 @@ declare(strict_types=1);
       </section>
       <section id="share-external-panel" class="external-share-manager share-panel" role="tabpanel" aria-labelledby="share-tab-external" hidden>
         <h3 id="external-share-title">Externe Links (ohne Nextcloud-Konto)</h3>
-        <p class="hint">Externe Links erlauben ausschließlich Lesen – inklusive der aktuellen Bestände und Lagerorte der freigegebenen Produkte. Du kannst sie befristen, mit einem Passwort schützen und jederzeit widerrufen.</p>
+        <p class="hint">Externe Links können nur lesen oder zusätzlich Bestände buchen. Vergib Schreibrechte persönlich, mit einem eigenen Link und verpflichtendem Passwort. Gefahrstoffdaten und Stammdaten bleiben geschützt.</p>
         <form id="external-share-form">
           <div class="grid">
             <label class="full">Bezeichnung<input id="external-share-label" required maxlength="100" placeholder="z. B. Hygieneinstitut – November"></label>
             <label>Freigabebereich<select id="external-share-scope"><option value="kataster">Nur Gefahrstoffkataster</option><option value="lager">Nur Lager</option><option value="both">Lager und Gefahrstoffkataster</option></select></label>
             <label>Gültigkeit<select id="external-share-days"><option value="1">1 Tag</option><option value="7" selected>7 Tage</option><option value="30">30 Tage</option></select></label>
+            <label class="full">Berechtigung
+              <select id="external-share-access"><option value="read">Nur lesen</option><option value="stock_editor">Bestände bearbeiten (Zugang, Entnahme, Korrektur)</option></select>
+            </label>
+            <label class="full" id="external-share-recipient-row" hidden>Person mit Schreibzugriff
+              <input id="external-share-recipient" type="text" maxlength="60" autocomplete="off" placeholder="Vor- und Nachname des Mitarbeiters">
+            </label>
             <div class="full"><label for="external-share-password">Zusätzliches Passwort (empfohlen)</label>
               <div class="external-password-control">
                 <input id="external-share-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Mindestens 12 Zeichen, wenn gesetzt">
@@ -152,7 +158,7 @@ declare(strict_types=1);
               </div>
             </div>
           </div>
-          <div class="share-form-actions"><button class="primary" type="submit">Externen Leselink erstellen</button></div>
+          <div class="share-form-actions"><button id="external-share-submit" class="primary" type="submit">Externe Freigabe erstellen</button></div>
         </form>
         <div id="external-share-created" class="external-share-created" hidden>
           <p><strong>Freigabelink erstellt</strong> – nur jetzt vollständig sichtbar. Link und Passwort am besten getrennt übermitteln.</p>

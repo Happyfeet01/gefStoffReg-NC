@@ -2,8 +2,9 @@
 declare(strict_types=1);
 $apiUrl = htmlspecialchars((string)($_['apiUrl'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$stockUrl = htmlspecialchars((string)($_['stockUrl'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 ?>
-<main id="gsk-external" data-api-url="<?php echo $apiUrl; ?>" data-file-pattern="<?php echo $filePattern; ?>">
+<main id="gsk-external" data-api-url="<?php echo $apiUrl; ?>" data-file-pattern="<?php echo $filePattern; ?>" data-stock-url="<?php echo $stockUrl; ?>">
   <header class="external-topbar">
     <div class="external-brand">
       <span class="external-brand-icon" aria-hidden="true">
@@ -14,7 +15,7 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
       </span>
       <span><strong>Lager &amp; Gefahrstoffe</strong><small>Freigegebene Bestandsdaten</small></span>
     </div>
-    <span class="external-readonly-pill">Nur Lesezugriff</span>
+    <span id="external-access-badge" class="external-readonly-pill">Nur Lesezugriff</span>
   </header>
 
   <div class="external-page">
@@ -57,13 +58,13 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
         </div>
         <div id="external-count" class="external-count"></div>
       </div>
-      <section id="external-location-overview" class="external-location-overview" aria-labelledby="external-locations-title">
-        <div class="external-section-heading">
-          <h2 id="external-locations-title">Lagerorte</h2>
+      <details id="external-location-overview" class="external-location-overview">
+        <summary id="external-locations-title" class="external-section-heading">
+          <strong>Lagerorte anzeigen</strong>
           <span id="external-locations-count" class="external-muted"></span>
-        </div>
+        </summary>
         <div id="external-locations" class="external-location-tags"></div>
-      </section>
+      </details>
       <div class="external-filters">
         <label for="external-search">Produkte durchsuchen
           <input id="external-search" type="search" placeholder="Produkt, Hersteller, Artikelnummer …" autocomplete="off">
@@ -72,6 +73,7 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
           <select id="external-location-filter"><option value="">Alle Lagerorte</option></select>
         </label>
       </div>
+      <p id="external-access-info" class="external-access-info" hidden></p>
       <p id="external-readonly-explainer" class="external-readonly-explainer">Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.</p>
       <div id="external-products" class="external-products"></div>
       <p id="external-empty" class="external-empty" hidden>Keine Produkte für diese Freigabe vorhanden.</p>
@@ -82,6 +84,6 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
 
   <footer class="external-page-footer">
     <span>Externe Ansicht · Lager &amp; Gefahrstoffe</span>
-    <span>Nur Lesezugriff</span>
+    <span id="external-footer-access">Nur Lesezugriff</span>
   </footer>
 </main>

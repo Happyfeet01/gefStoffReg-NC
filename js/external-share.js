@@ -5,6 +5,7 @@
   const $=id=>document.getElementById(id);
   const api=root.dataset.apiUrl;
   const filePattern=root.dataset.filePattern;
+  const stockUrl=root.dataset.stockUrl;
   let password='';
   const scopeNames={kataster:'Gefahrstoffkataster',lager:'Lager',both:'Lager und Gefahrstoffkataster'};
   const kindNames={chemical:'Chemikalien',consumable:'Verbrauchsmaterial',other:'Sonstiges',unclassified:'Nicht zugeordnet'};
@@ -17,16 +18,18 @@
   };
   // Nextcloud's IRequest reliably parses application/x-www-form-urlencoded POST data.
   // Keep requests same-origin so a link cannot redirect the password elsewhere.
-  async function authenticatedFetch(endpoint){
+  async function authenticatedFetch(endpoint,booking=null){
     const target=new URL(endpoint,window.location.href);
     if(target.origin!==window.location.origin)throw new Error('Ungültiger Freigabe-Endpunkt.');
+    const headers={
+      'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
+      'Accept':'application/json, application/pdf',
+    };
+    if(booking!==null)headers['X-GSK-Stock-Action']='1';
     const response=await fetch(target.href,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
-        'Accept':'application/json, application/pdf',
-      },
-      body:new URLSearchParams({password}),
+      headers,
+      body:new URLSearchParams(booking===null?{password}:{password,booking:JSON.stringify(booking)}),
       credentials:'same-origin',
       redirect:'error',
       cache:'no-store',
@@ -53,6 +56,10 @@
   let allProducts=[];
   let currentScope='kataster';
   let fullDetails=true;
+  let stockEditor=false;
+  let guestRecipient='';
+  let bookingFeedback=null;
+  let allowedLocations=[];
   window.addEventListener('pagehide',()=>photoUrls.forEach(url=>URL.revokeObjectURL(url)));
 
   function error(message) {
@@ -92,18 +99,19 @@
       button.hidden=true;
     }catch(err){error(err.message)}finally{button.disabled=false}
   }
-  function labeledValue(label,value){
-    const dt=el('dt','',label),dd=el('dd','',value);
-    return [dt,dd];
-  }
   function fieldGroup(title,items){
     const selected=items.filter(([,value])=>value!==undefined&&value!==null&&String(value).trim()!=='');
     if(!selected.length)return null;
-    const group=el('section','external-detail-section');
+    const group=el('section','external-detail-section external-info-box');
     group.append(el('h4','',title));
-    const dl=el('dl','external-fields');
-    for(const [label,value] of selected)dl.append(...labeledValue(label,value));
-    group.append(dl);
+    const fields=el('div','external-field-grid');
+    for(const [label,value] of selected){
+      const row=el('div','external-field-row');
+      row.append(el('span','external-field-label',label));
+      row.append(el('span','external-field-value',value));
+      fields.append(row);
+    }
+    group.append(fields);
     return group;
   }
   function linkGroup(p,includeSafety){
@@ -145,6 +153,96 @@
     }
     return section.childElementCount>1?section:null;
   }
+  function bookingForm(p) {
+    const section=el('section','external-detail-section external-booking-section');
+    section.append(el('h4','','Buchung erfassen'));
+    const info=el('p','external-muted','Was wurde eingelagert oder entnommen?');
+    section.append(info);
+    const form=el('form','external-booking-form');
+    const locationLabel=el('label','','Lagerort');
+    const select=el('select','external-booking-location');
+    select.required=true;
+    const options=allowedLocations.slice().sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    const preferred=(p.stock||[]).find(row=>Number(row.packs)>0);
+    for(const loc of options){
+      const option=el('option','',loc.name);
+      option.value=String(loc.id);
+      select.append(option);
+    }
+    if(preferred&&options.some(loc=>Number(loc.id)===Number(preferred.location_id))){
+      select.value=String(preferred.location_id);
+    }
+    locationLabel.append(select);
+    const actionLabel=el('label','','Was möchtest du tun?');
+    const action=el('select','external-booking-action');
+    for(const [value,title] of [['add','Einlagern'],['remove','Entnehmen'],['set','Bestand korrigieren']]){
+      const option=el('option','',title);option.value=value;action.append(option);
+    }
+    actionLabel.append(action);
+    const quantityLabel=el('label','','Menge in Gebinden');
+    const qty=el('input','external-booking-quantity');
+    qty.type='number';qty.min='0';qty.step='0.001';qty.required=true;qty.placeholder='z. B. 2';
+    quantityLabel.append(qty);
+    const noteLabel=el('label','','Bemerkung (optional)');
+    const note=el('input','external-booking-note');note.maxLength=200;
+    note.placeholder='z. B. Lieferung oder Entnahmegrund';
+    noteLabel.append(note);
+    const current=el('p','external-muted');
+    const updateCurrent=()=>{
+      const stock=(p.stock||[]).find(row=>String(row.location_id)===select.value);
+      const count=Number(stock?.packs||0);
+      current.textContent='Aktuell: '+format(count)+' Gebinde';
+    };
+    select.addEventListener('change',updateCurrent);
+    const submit=el('button','external-booking-submit','Änderung speichern');
+    submit.type='submit';
+    const inlineError=el('p','external-booking-inline-error');
+    inlineError.setAttribute('role','alert');
+    inlineError.hidden=true;
+    form.append(locationLabel,actionLabel,quantityLabel,noteLabel,current,submit,inlineError);
+    updateCurrent();
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();submit.disabled=true;inlineError.hidden=true;
+      $('external-error').hidden=true;
+      try{
+        const locId=Number(select.value);
+        const prev=(p.stock||[]).find(row=>Number(row.location_id)===locId);
+        const expected_milli=Math.round(Number(prev?.packs||0)*1000);
+        const quantity=Number(qty.value);
+        if(!Number.isFinite(quantity)||quantity<0||quantity>1000000)throw Error('Gebindeanzahl ungültig.');
+        const payload={
+          product_id:p.id, location_id:locId,
+          action:action.value,packs:quantity,note:note.value.trim(),expected_milli,
+        };
+        const response=await authenticatedFetch(stockUrl,payload);
+        await response.json();
+        // Reload from server after booking; never trust local arithmetic as stock truth.
+        const fresh=await authenticatedFetch(api);
+        const data=await fresh.json();
+        allProducts=Array.isArray(data.products)?data.products:[];
+        allowedLocations=Array.isArray(data.locations)?data.locations:[];
+        bookingFeedback={productId:p.id,message:'Gespeichert! Neuer Bestand am gewählten Lagerort: '+format(Number((allProducts.find(item=>item.id===p.id)?.stock||[]).find(row=>Number(row.location_id)===locId)?.packs||0))+' Gebinde.'};
+        renderLocations(allowedLocations);
+        renderProducts();
+      }catch(err){
+        inlineError.textContent=err.message;
+        inlineError.hidden=false;
+        bookingFeedback=null;
+        // A concurrent update invalidates the local expected stock. Refresh it.
+        if(/409|geändert|konflikt|neu laden/i.test(err.message)){
+          try{
+            const reload=await authenticatedFetch(api);
+            const latest=await reload.json();
+            allProducts=Array.isArray(latest.products)?latest.products:[];
+            renderProducts();
+          }catch{}
+        }
+      }finally{submit.disabled=false}
+    });
+    section.append(form);
+    return section;
+  }
+
   function renderProduct(p,scope){
     const includeSafety=scope!=='lager';
     const card=el('article','external-card');
@@ -165,9 +263,20 @@
     stock.append(el('p','',occupied.length?occupied.map(r=>r.location).join(' · '):'Kein aktueller Bestand hinterlegt'));
     card.append(stock);
     }
+    if(bookingFeedback&&bookingFeedback.productId===p.id){
+      const msg=el('p','external-booking-feedback',bookingFeedback.message);
+      msg.setAttribute('role','status');
+      card.append(msg);
+    }
 
+    if(stockEditor){
+      const quick=el('details','external-quick-booking');
+      quick.append(el('summary','external-quick-booking-toggle','Bestand ändern'));
+      quick.append(bookingForm(p));
+      card.append(quick);
+    }
     const details=el('details','external-product-details');
-    const summary=el('summary','external-detail-toggle','Produktdetails anzeigen');
+    const summary=el('summary','external-detail-toggle','Weitere Produktinfos');
     details.append(summary);
     const content=el('div','external-detail-content');
     const general=fieldGroup('Stammdaten',[
@@ -257,12 +366,20 @@
       const data=await response.json();
       const products=Array.isArray(data.products)?data.products:[];
       allProducts=products;
+      bookingFeedback=null;
       currentScope=data.scope;
       fullDetails=data.full_details===true;
-      $('external-readonly-explainer').textContent=fullDetails
-        ?'Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.'
-        :'Dies ist eine ältere, eingeschränkte Freigabe. Für sämtliche Bestände, Lagerorte und Fotos muss der Verwalter einen neuen Leselink erstellen.';
-      renderLocations(Array.isArray(data.locations)?data.locations:[]);
+      stockEditor=data.access==='stock_editor' && fullDetails;
+      guestRecipient=stockEditor?String(data.recipient||''):'';
+      allowedLocations=Array.isArray(data.locations)?data.locations:[];
+      $('external-access-info').hidden=!stockEditor;
+      $('external-access-info').textContent=stockEditor?'Bestände bearbeiten – Zugang für '+guestRecipient:'';
+      $('external-access-badge').textContent=stockEditor?'Bestände bearbeiten':'Nur Lesezugriff';
+      $('external-footer-access').textContent=stockEditor?'Bestandsbuchung erlaubt':'Nur Lesezugriff';
+      $('external-readonly-explainer').hidden=fullDetails;
+      $('external-readonly-explainer').textContent=fullDetails?''
+        :'Ältere Freigabe: Einige Angaben und Dateien sind hier nicht verfügbar.';
+      renderLocations(allowedLocations);
       renderProducts();
       $('external-label').textContent=data.label||'Freigabe';
       const expiry=new Date(Number(data.expires_at)*1000);

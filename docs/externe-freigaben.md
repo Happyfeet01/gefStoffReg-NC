@@ -142,3 +142,48 @@ neuen Link mit dem gewünschten Bereich und Passwort erstellen und diesen
 an die vorgesehenen Empfänger übermitteln. Das geschieht bewusst **nicht**
 automatisch: Ein App-Update darf eine bereits verteilte Freigabe nicht
 ungefragt um weitere Lagerdaten erweitern.
+
+
+## Persönliche externe Bestandsbearbeitung (0.1.33)
+
+Freigaben für Personen ohne Nextcloud-Konto haben jetzt zwei Stufen: Nur Lesen (Standard) und Bestände bearbeiten. Bestehende Links bleiben ausschließlich lesend.
+Schreibrechte erfordern einen separaten Link pro Mitarbeiter, einen Namen (2–60 Zeichen), ein Passwort mit mindestens 12 Zeichen und eine befristete Gültigkeit von 1, 7 oder 30 Tagen. Der Link kann jederzeit widerrufen werden.
+
+Der öffentliche POST-Endpunkt /shared/{token}/stock prüft Token, Passwort, Ablauf, Widerruf, stock_editor-Rolle, Produktbereich und einen speziellen Anti-CSRF-Header X-GSK-Stock-Action: 1 bei jeder Buchung. Nur Zugang, Entnahme und Bestand korrigieren sind erlaubt. Produktstammdaten, Gefahrstoffangaben und Sicherheitsdatenblätter bleiben unveränderbar.
+
+Die Buchung enthält eine erwartete Bestandsmenge in Tausendstel Gebinde; konkurrierende Änderungen werden mit HTTP 409 abgewiesen. Alle Änderungen werden in gsk_event mit before/after, Notiz und der Zugangskennung external:<16-stellige Link-ID> protokolliert. Im Nextcloud-Log wird diese ID mit dem eingetragenen Mitarbeiternamen verknüpft. Die tatsächliche Identität kann durch einen weitergegebenen Link nicht mit Sicherheit bewiesen werden.
+
+### Tests vor Merge
+
+```sh
+php -l lib/Service/ExternalShareService.php
+php -l lib/Service/ExternalStockBookingService.php
+php -l lib/Controller/ExternalShareController.php
+php tests/external-shares.php
+php tests/external-stock-validation.php
+php tests/external-share-routes.php
+node --check js/app.js
+node --check js/external-share.js
+node tests/external-stock-browser.js
+node tests/external-share-scroll.js
+```
+
+Für den Produktivbetrieb zusätzlich echte Nextcloud-Testdaten verwenden und Freigabebereich, widerrufene bzw. abgelaufene Links, fehlendes Passwort, direkte POST-Manipulation, gsk_event, Parallelbuchungen und insbesondere zwei gleichzeitige Erstbuchungen bei bisher leerem Produkt-/Lagerort prüfen. Falls gsk_stock noch keine eindeutige Kombination von product_id und location_id garantiert, muss vor einem Merge ein passender Datenbankschutz umgesetzt werden.
+
+Dieser Stand ist ein Draft und darf vor bestandenen Sicherheitstests nicht produktiv eingesetzt werden.
+
+## Einfache Bedienung für Lagerpersonal (ab 0.1.34)
+
+Die externe Mitarbeiteransicht ist bewusst nach dem täglichen Ablauf gestaltet:
+
+1. Produkt über den Namen oder die Suche finden.
+2. Aktuellen Bestand und Lagerort direkt in der kompakten Produktkarte sehen.
+3. **Bestand ändern** öffnen, ohne erst technische Produktdetails auszuklappen.
+4. **Einlagern**, **Entnehmen** oder **Bestand korrigieren** auswählen, Menge und optional eine Bemerkung eintragen, **Änderung speichern**.
+5. Der aktuelle Bestand wird erneut vom Server geladen und die Bestätigung erscheint direkt am betroffenen Produkt. Fehler werden unmittelbar am Buchungsformular angezeigt.
+
+Stammdaten, SDB und weitere Gefahrstoffinformationen stehen separat unter **Weitere Produktinfos**. Dort werden Beschriftungen und Werte als kompakte Paare in einer hellen Karte angezeigt: beispielsweise **PRODUKTNAME** direkt über **Witty-Pool Flocal 5**. Die Lagerortübersicht ist standardmäßig eingeklappt. Lange Warntexte werden bei älteren Links auf einen kurzen Hinweis reduziert.
+
+**Sicherheit unverändert:** Die Gestaltung fügt keine Schreibrechte hinzu. Leselinks bleiben read-only; externe Schreibaktionen sind nur mit dem in PR #18 geprüften persönlichen stock_editor-Zugang möglich.
+
+Tests: `node tests/external-share-usability.js`, `node tests/external-share-layout.js`, `node tests/external-stock-browser.js` (Browser erforderlich). iPhone-Safari-Abnahme weiterhin erforderlich.

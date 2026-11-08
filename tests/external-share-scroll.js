@@ -29,7 +29,9 @@ const products=Array.from({length:36},(_,i)=>({
   manufacturer:'Beispiel GmbH',category:'Wasseraufbereitung',
   hazardous:true,material_kind:'chemical',classification:'Skin Corr. 1A',
   h_statements:('H314 Verursacht schwere Verätzungen der Haut und schwere Augenschäden. ').repeat(8),
-  ghs:'GHS05',signal:'Gefahr',sds_id:null,
+  ghs:'GHS05',signal:'Gefahr',sds_id:null,pack_size:10,unit:'l',
+  article:'A-2026',ean:'4001234567890',use_area:'Wasserpflege',
+  stock:[{location_id:1,location:'Chemieraum',packs:2.5}],photos:[],
 }));
 async function check(browser,viewport){
   const page=await browser.newPage({
@@ -51,6 +53,7 @@ async function check(browser,viewport){
     if(target.pathname==='/app.js')return reply(appJs,'text/javascript');
     if(target.pathname==='/data')return reply(JSON.stringify({
       scope:'kataster',label:'Test Flieden',expires_at:1799999999,products,
+      locations:[{id:1,name:'Chemieraum'}],
     }),'application/json');
     return route.fulfill({status:404,body:'not found'});
   });
@@ -59,6 +62,14 @@ async function check(browser,viewport){
     await page.getByRole('button',{name:/Freigabe anzeigen/}).click();
     await page.locator('#external-products .external-card').first().waitFor();
     assert.equal(await page.locator('#external-products .external-card').count(),36,'Not all products rendered');
+    assert.match(await page.locator('#external-products .external-card').first().innerText(),/Bestand: 2,5 Gebinde/, 'Stock missing in Kataster scope');
+    assert.match(await page.locator('#external-locations').innerText(),/Chemieraum/, 'Visible storage locations missing');
+    const first=page.locator('#external-products .external-card').first();
+    await first.locator('summary').click();
+    assert.match(await first.innerText(),/Lagerorte und Bestände/, 'Full detail section missing');
+    assert.match(await first.innerText(),/Artikelnummer/, 'Read-only product master data missing');
+    assert.equal(await first.locator('input,textarea,button[type="submit"]').count(),0,'Guest can edit an inventory product');
+    await first.locator('summary').click();
     const state=await page.evaluate(()=>{
       const last=document.querySelector('#external-products .external-card:last-child');
       const footer=document.querySelector('#gsk-external > footer');

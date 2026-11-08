@@ -104,6 +104,15 @@ body#body-public #content.app-gefahrstoffkataster {
   background:#fff;color:var(--gsk-ink);font:inherit;font-size:16px;
   box-shadow:none;outline:none;appearance:none;
 }
+#gsk-external .external-password-control {
+  width:100%;display:flex;align-items:stretch;gap:9px;min-width:0;
+}
+#gsk-external .external-password-control #external-password {min-width:0;flex:1}
+#gsk-external .external-password-control .external-password-toggle {
+  flex:none;background:#edf4f6;color:var(--gsk-primary);border:1px solid #d5e5eb;
+  min-height:48px;padding:10px 13px;font-size:12px;font-weight:750;border-radius:10px;
+}
+#gsk-external .external-password-control .external-password-toggle:hover {background:#dcecf1}
 #gsk-external #external-password:focus-visible {
   outline:3px solid rgba(32,106,131,.18);outline-offset:1px;border-color:var(--gsk-primary);
 }

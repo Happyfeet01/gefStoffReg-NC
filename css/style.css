@@ -241,3 +241,52 @@
 @media(max-width:450px) {
   #gsk-app #external-share-form .external-password-toggle {padding:7px 10px;font-size:12px}
 }
+
+
+/* Use a native-style inset eye button in the external sharing editor. */
+#gsk-app #external-share-form .external-password-control {
+  display:block;
+  position:relative;
+  width:100%;
+  min-width:0;
+  margin-top:6px;
+}
+#gsk-app #external-share-form .external-password-control input#external-share-password {
+  display:block;
+  width:100%;
+  min-width:0;
+  height:48px;
+  padding-inline-end:54px;
+  border-radius:var(--border-radius-element,8px);
+}
+#gsk-app #external-share-form .external-password-control button.external-password-toggle {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:absolute;
+  inset-inline-end:4px;
+  top:50%;
+  transform:translateY(-50%);
+  width:44px;
+  min-width:44px;
+  max-width:44px;
+  min-height:44px;
+  height:44px;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:var(--border-radius-element,8px);
+  background:transparent;
+  color:var(--color-main-text,#222);
+  box-shadow:none;
+}
+#gsk-app #external-share-form .external-password-control button.external-password-toggle:hover {
+  background:var(--color-background-hover,#f5f5f5);
+}
+#gsk-app #external-share-form .external-password-control button.external-password-toggle:focus-visible {
+  outline:2px solid var(--color-primary-element,#00679e);
+  outline-offset:-2px;
+}
+#gsk-app #external-share-form .gsk-eye-icon {display:block;width:20px;height:20px;pointer-events:none}
+#gsk-app #external-share-form .gsk-eye-slash {display:none}
+#gsk-app #external-share-form [aria-pressed="true"] .gsk-eye-slash {display:block}

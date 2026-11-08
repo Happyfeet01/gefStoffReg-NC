@@ -24,12 +24,14 @@ den Bereich (nur Gefahrstoffkataster, nur Lager oder beides), eine feste Laufzei
   `X-Content-Type-Options: nosniff` angewendet.
 - Fehlversuche beim Passwort sind mit Nextclouds `BruteForceProtection` versehen.
 - Pro Bereich werden nur definierte Felder ausgegeben:
-  - **Kataster:** nur Produkte mit `hazardous=true`, deren Gefahrenkennzeichnung
-    und gegebenenfalls SDB. Keine Mengen/Lagerorte.
-  - **Lager:** alle Produkte, Kategorie, Materialart und Bestand je Lagerort.
-    Keine Gefahrstoffdokumente oder SDB-Links.
-  - **Beide:** alle Produkte; Bestände sowie Gefahrstoffangaben und SDB zu
-    tatsächlich als Gefahrstoff markierten Produkten.
+  - **Kataster:** nur Produkte mit `hazardous=true`; mit vollständigen
+    Stammdaten, Beständen und Mengen je Lagerort, Gefahrstoffangaben, aktuellen
+    SDB und Produktfotos. Die Lagerortübersicht enthält nur Lagerorte dieser Produkte.
+  - **Lager:** alle Produkte mit Stammdaten, Gebindegrößen, Bestand je Lagerort,
+    Herstellerlinks, Lagerhinweisen und Produktfotos. Keine Gefahrstoffdokumente
+    oder SDB-Links.
+  - **Beide:** alle Produkte einschließlich aller Lagerorte; zusätzlich
+    Gefahrstoffangaben und SDB zu als Gefahrstoff markierten Produkten.
 - PDF-Download prüft Dateityp, Produktbezug und Freigabebereich; fremde
   oder nicht zugeordnete Datei-IDs liefern keine Dokumente.
 - Es gibt keine externe Schreibfunktion und keine Wiederverwendung
@@ -66,8 +68,10 @@ sind Konflikte im Integrationstest zu prüfen.
    erstellen. Freigabe in einem privaten Browserfenster ohne Nextcloud-Konto
    öffnen, korrektes und falsches Passwort testen.
 3. **Scope-Trennung:** Kataster-Link darf ausschließlich als Gefahrstoff markierte
-   Produkte zeigen, keine Bestandsmengen. Lager-Link darf Lagerbestände anzeigen,
-   aber keinerlei SDB-PDF oder SDB-URL. „Beide“ muss der Kombination entsprechen.
+   Produkte zeigen und muss deren Mengen, Gebindegrößen, Lagerorte, SDB und Fotos
+   lesend anzeigen. Lager-Link muss alle Bestände und zugehörige Fotos anzeigen,
+   aber keine Gefahrstoff-SDB oder UFI-Felder liefern. „Beide“ zeigt alle Produkte
+   mit allen für den jeweiligen Produktstatus verfügbaren Details.
 4. **Öffentliche API:** Direkte GET-Aufrufe auf `/shared/{token}/data` und
    `/shared/{token}/file/{id}` dürfen nicht funktionieren (POST-only).
    Nur ein gültiger Token und ggf. das korrekte Passwort darf Daten liefern;
@@ -89,3 +93,36 @@ sind Konflikte im Integrationstest zu prüfen.
 
 **Nicht automatisch deployen oder nach `main` mergen.** Die öffentliche
 Freigabe benötigt echte End-to-End-Tests auf der Zielinstallation.
+
+## Erweiterung: vollständige externe Leseansicht
+
+Die externe Freigabe stellt pro erlaubtem Produkt die **gleichen fachlichen Daten
+wie die interne Produktmaske** dar, jedoch ausschließlich als Text, Links und
+gesicherte Downloads. Eine interne Bearbeitungsmaske wird ausdrücklich nicht
+anonym gerendert. Produkte zeigen direkt ihren Gesamtbestand; die weiteren
+Stammdaten, Bestände je Lagerort, Sicherheitshinweise und Dateien sind in
+aufklappbaren Detailbereichen verfügbar.
+
+Der öffentliche Endpunkt gibt ausschließlich definierte Felder aus (Allowlist).
+Interne API-Schlüssel, Benutzerrechte, Freigabegeheimnisse, SDB-Prüfnotizen,
+Buchungsakteure und nicht zum Produkt gehörende Dateien werden **nicht**
+veröffentlicht. Produktfotos werden nur auf Abruf über den
+passwort-/token-/bereichsgeprüften POST-Dateiendpunkt ausgeliefert. Es gibt
+keine externen Schreib- oder Buchungsrouten.
+
+### Neue Regressionstests
+
+```bash
+php -l lib/Service/ExternalShareProjection.php
+php -l lib/Controller/ExternalShareController.php
+php tests/external-share-projection.php
+node --check js/external-share.js
+node tests/external-share-password.js
+node tests/external-share-scroll.js
+```
+
+Mit zwei produktiven Testprodukten (ein Gefahrstoff, ein normales
+Verbrauchsmaterial) den Inhalt aller drei Freigabebereiche prüfen, einschließlich
+Lagerorte, Gebindeanzahl und Gesamtmengen, Produktfotos, letztem SDB,
+direkten Datei-ID-Requests und Widerruf. Auch eine Kataster-Freigabe darf
+Bestände *ihrer* Gefahrstoffe anzeigen.

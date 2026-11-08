@@ -8,6 +8,8 @@ const html = read('templates/external-share.php');
 const css = read('css/external-share.css');
 const js = read('js/external-share.js');
 const controller = read('lib/Controller/ExternalShareController.php');
+const adminHtml = read('templates/main.php');
+const adminJs = read('js/app.js');
 for (const id of ['gsk-external', 'external-auth', 'external-unlock',
                   'external-password', 'external-error', 'external-content',
                   'external-label', 'external-info', 'external-count',
@@ -23,5 +25,15 @@ assert.match(css, /#gsk-external \[hidden\] \{display:none !important\}/);
 assert.match(css, /@media \(max-width:600px\)/);
 assert.match(controller, /setFooterVisible\(false\)/);
 assert.match(js, /\$\('external-auth'\)\.hidden=true/);
+assert.match(html, /id="external-password-toggle"/);
+assert.match(adminHtml, /id="external-share-password-toggle"/);
+assert.match(js, /new URLSearchParams\(\{password\}\)/);
+assert.match(js, /credentials:'same-origin'/);
+assert.doesNotMatch(js, /credentials:'omit'/);
+assert.match(js, /external-password-toggle.*addEventListener/);
+assert.match(js, /querySelector\('button\[type="submit"\]'\)/);
+assert.match(adminJs, /external-share-password-toggle.*addEventListener/);
+assert.match(controller, /logDeniedShare\(\$token, 'data'\)/);
+new Function(adminJs);
 new Function(js);
 console.log('External public page layout, controls and responsive CSS guards passed');

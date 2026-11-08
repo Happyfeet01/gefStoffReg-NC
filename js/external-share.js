@@ -155,7 +155,7 @@
   }
   function bookingForm(p) {
     const section=el('section','external-detail-section external-booking-section');
-    section.append(el('h4','','Bestand ändern'));
+    section.append(el('h4','','Buchung erfassen'));
     const info=el('p','external-muted','Was wurde eingelagert oder entnommen?');
     section.append(info);
     const form=el('form','external-booking-form');
@@ -372,8 +372,8 @@
       stockEditor=data.access==='stock_editor' && fullDetails;
       guestRecipient=stockEditor?String(data.recipient||''):'';
       allowedLocations=Array.isArray(data.locations)?data.locations:[];
-      $('external-access-info').hidden=false;
-      $('external-access-info').textContent=stockEditor?'Bestände bearbeiten · Persönlicher Zugang: '+guestRecipient+' · Keine Änderung von Stammdaten oder Gefahrstoffangaben':'Nur Lesezugriff';
+      $('external-access-info').hidden=!stockEditor;
+      $('external-access-info').textContent=stockEditor?'Bestände bearbeiten – Zugang für '+guestRecipient:'';
       $('external-access-badge').textContent=stockEditor?'Bestände bearbeiten':'Nur Lesezugriff';
       $('external-footer-access').textContent=stockEditor?'Bestandsbuchung erlaubt':'Nur Lesezugriff';
       $('external-readonly-explainer').hidden=fullDetails;

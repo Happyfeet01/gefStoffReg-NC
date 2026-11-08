@@ -212,3 +212,13 @@
 #gsk-app .share-row {display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid var(--gsk-border);overflow-wrap:anywhere}
 #gsk-app .share-row button {height:auto;min-height:40px;padding:8px 12px;border:1px solid var(--gsk-border);border-radius:8px;background:var(--gsk-surface);color:var(--gsk-text)}
 #gsk-app #share-list {margin-bottom:24px}
+
+
+#gsk-app .external-share-manager {border-top:1px solid var(--gsk-border);margin:24px 0;padding:22px 0}
+#gsk-app .external-share-manager h3 {margin:0 0 8px}
+#gsk-app .external-share-manager h4 {margin:22px 0 8px}
+#gsk-app .external-share-manager .hint {margin:8px 0 14px}
+#gsk-app .external-share-copy {display:flex;gap:8px;flex-wrap:wrap}
+#gsk-app #external-share-created-url {flex:1;min-width:180px}
+#gsk-app .external-share-created {padding:15px;margin:12px 0;border:1px solid var(--gsk-border);border-radius:9px;background:var(--gsk-soft)}
+#gsk-app .external-share-created p {margin:0 0 10px}

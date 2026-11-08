@@ -229,32 +229,44 @@ final class ExternalShareController extends Controller {
             $this->logDeniedShare($token, 'data');
             return $this->deniedPublic();
         }
-        // The stock-only view never grants access to SDB documents.
-        if (!in_array($entry['scope'], ['kataster','both'], true)) {
+        $file = $this->one('gsk_file', $id);
+        if (!$file || !in_array($file['kind'], ['photo','sds'], true)) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
-        $file = $this->one('gsk_file', $id);
-        if (!$file || $file['kind'] !== 'sds') return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         $product = $this->one('gsk_product', (int)$file['product_id']);
         if (!$product) return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         $p = json_decode($product['details'], true);
-        if (!is_array($p) || empty($p['hazardous'])) {
+        if (!is_array($p) || ($entry['scope'] === 'kataster' && empty($p['hazardous']))) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
-        // Expose only the latest SDB, exactly as in the public product listing.
-        foreach ($this->rows('gsk_file') as $candidate) {
-            if ($candidate['kind'] === 'sds' && (int)$candidate['product_id'] === (int)$file['product_id']
-                && (int)$candidate['id'] > $id) {
+        if ($file['kind'] === 'sds') {
+            // Warehouse-only shares do not reveal safety documents.
+            if ($entry['scope'] === 'lager' || empty($p['hazardous'])) {
                 return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
             }
+            // Expose only the latest SDB as referenced by the public listing.
+            foreach ($this->rows('gsk_file') as $candidate) {
+                if ($candidate['kind'] === 'sds' && (int)$candidate['product_id'] === (int)$file['product_id']
+                    && (int)$candidate['id'] > $id) {
+                    return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+                }
+            }
+        }
+        // Allow only image formats already accepted by the internal upload API.
+        $photoMimes = ['image/jpeg','image/png','image/webp','image/heic','image/heif'];
+        $mime = $file['kind'] === 'sds' ? 'application/pdf' : (string)$file['mime'];
+        if ($file['kind'] === 'photo' && !in_array($mime, $photoMimes, true)) {
+            return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
         try {
             $folder = $this->appData->getFolder('documents');
             $content = $folder->getFile($file['storage_name'])->getContent();
-            if (!is_string($content)) throw new \RuntimeException('Empty document');
-            $response = new DataDownloadResponse($content, $file['filename'], 'application/pdf');
+            if (!is_string($content)) throw new \RuntimeException('Missing document');
+            $response = new DataDownloadResponse($content, (string)$file['filename'], $mime);
             $response->addHeader('X-Content-Type-Options', 'nosniff');
-            $response->addHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+            if ($file['kind'] === 'sds') {
+                $response->addHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+            }
             return $this->noStore($response);
         } catch (\Throwable $e) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);

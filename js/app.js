@@ -1,4 +1,4 @@
-const state = {view:'lager',permissions:{},shareRevision:null,products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
+const state = {view:'lager',permissions:{},shareRevision:null,externalShareRevision:null,products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
 const $ = id => document.getElementById(id);
 const url = path => OC.generateUrl('/apps/gefahrstoffkataster'+path);
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
@@ -491,8 +491,70 @@ async function loadShares(){
   }
   if(!list.childElementCount)list.append(el('p','hint','Noch keine zusätzlichen Freigaben.'));
 }
+const externalScopeLabels={kataster:'Gefahrstoffkataster',lager:'Lager',both:'Lager + Gefahrstoffkataster'};
+async function loadExternalLinks(){
+  const response=await fetch(url('/api/external-links'),{cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Externe Links konnten nicht geladen werden.');
+  state.externalShareRevision=data.revision;
+  const list=$('external-share-list');list.replaceChildren();
+  for(const link of data.links||[]){
+    const item=el('div','share-row');
+    const expiry=new Date(Number(link.expires_at)*1000).toLocaleDateString('de-DE');
+    const status=link.expired?'Abgelaufen':'Gültig bis '+expiry;
+    item.append(el('div','',`${link.label} · ${externalScopeLabels[link.scope]||link.scope} · ${status} · ${link.password_protected?'Passwortschutz':'Ohne Passwort'}`));
+    const revoke=button('Widerrufen',async()=>{
+      revoke.disabled=true;
+      try{
+        await request('/api/external-links/revoke',{id:link.id,revision:state.externalShareRevision});
+        $('external-share-created').hidden=true;
+        await loadExternalLinks();
+        notice('Externer Freigabelink widerrufen.');
+      }catch(err){
+        notice(err.message,true);
+        await loadExternalLinks().catch(()=>{});
+      }finally{revoke.disabled=false}
+    });
+    item.append(revoke);list.append(item);
+  }
+  if(!list.childElementCount)list.append(el('p','hint','Noch keine externen Freigaben.'));
+}
+$('external-share-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button=event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled=true;
+  try{
+    const data=await request('/api/external-links',{
+      label:$('external-share-label').value.trim(),
+      scope:$('external-share-scope').value,
+      days:Number($('external-share-days').value),
+      password:$('external-share-password').value,
+      revision:state.externalShareRevision,
+    });
+    $('external-share-password').value='';
+    $('external-share-created-url').value=data.url;
+    $('external-share-created').hidden=false;
+    $('external-share-label').value='';
+    await loadExternalLinks();
+    notice('Externer Leselink erstellt.');
+  }catch(err){
+    notice(err.message,true);
+    await loadExternalLinks().catch(()=>{});
+  }finally{button.disabled=false}
+});
+$('external-share-copy').addEventListener('click',async()=>{
+  const field=$('external-share-created-url');
+  try{
+    await navigator.clipboard.writeText(field.value);
+    notice('Freigabelink kopiert.');
+  }catch{
+    field.focus();field.select();
+    notice('Bitte den markierten Link manuell kopieren.');
+  }
+});
 $('manage-shares').addEventListener('click',async()=>{
-  try{await loadShares();show('sharing-dialog')}catch(err){notice(err.message,true)}
+  try{await Promise.all([loadShares(),loadExternalLinks()]);show('sharing-dialog')}
+  catch(err){notice(err.message,true)}
 });
 $('sharing-form').addEventListener('submit',async event=>{
   event.preventDefault();

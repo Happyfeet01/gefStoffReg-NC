@@ -57,6 +57,22 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
         </div>
         <div id="external-count" class="external-count"></div>
       </div>
+      <section class="external-location-overview" aria-labelledby="external-locations-title">
+        <div class="external-section-heading">
+          <h2 id="external-locations-title">Lagerorte</h2>
+          <span id="external-locations-count" class="external-muted"></span>
+        </div>
+        <div id="external-locations" class="external-location-tags"></div>
+      </section>
+      <div class="external-filters">
+        <label for="external-search">Produkte durchsuchen
+          <input id="external-search" type="search" placeholder="Produkt, Hersteller, Artikelnummer …" autocomplete="off">
+        </label>
+        <label for="external-location-filter">Lagerort
+          <select id="external-location-filter"><option value="">Alle Lagerorte</option></select>
+        </label>
+      </div>
+      <p class="external-readonly-explainer">Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.</p>
       <div id="external-products" class="external-products"></div>
       <p id="external-empty" class="external-empty" hidden>Keine Produkte für diese Freigabe vorhanden.</p>
       <p class="external-footnote">Die Angaben entsprechen dem zuletzt abgerufenen Datenstand. Einstufung und Sicherheitsdatenblätter vor der Verwendung anhand des Originalprodukts prüfen.</p>

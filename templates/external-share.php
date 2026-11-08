@@ -2,8 +2,9 @@
 declare(strict_types=1);
 $apiUrl = htmlspecialchars((string)($_['apiUrl'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$stockUrl = htmlspecialchars((string)($_['stockUrl'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 ?>
-<main id="gsk-external" data-api-url="<?php echo $apiUrl; ?>" data-file-pattern="<?php echo $filePattern; ?>">
+<main id="gsk-external" data-api-url="<?php echo $apiUrl; ?>" data-file-pattern="<?php echo $filePattern; ?>" data-stock-url="<?php echo $stockUrl; ?>">
   <header class="external-topbar">
     <div class="external-brand">
       <span class="external-brand-icon" aria-hidden="true">
@@ -72,6 +73,7 @@ $filePattern = htmlspecialchars((string)($_['filePattern'] ?? ''), ENT_QUOTES | 
           <select id="external-location-filter"><option value="">Alle Lagerorte</option></select>
         </label>
       </div>
+      <p id="external-access-info" class="external-access-info" hidden></p>
       <p id="external-readonly-explainer" class="external-readonly-explainer">Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.</p>
       <div id="external-products" class="external-products"></div>
       <p id="external-empty" class="external-empty" hidden>Keine Produkte für diese Freigabe vorhanden.</p>

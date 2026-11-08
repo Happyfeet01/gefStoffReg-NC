@@ -47,6 +47,13 @@ assert.match(js, /button\.title=visible/);
 assert.doesNotMatch(js, /button\.textContent=visible/);
 assert.match(adminJs, /toggle\.title=visible/);
 assert.doesNotMatch(adminJs, /toggle\.textContent=visible/);
+// Nextcloud 35 guest shell may vertically center the body and fix all footers.
+// The public product list must restore actual document scroll and normal footer flow.
+assert.match(css, /body#body-public:has\(#gsk-external\)\s*\{[^}]*display:block !important/s);
+assert.match(css, /html:has\(#gsk-external\)\s*\{[^}]*overflow-y:auto !important/s);
+assert.match(css, /body#body-public #content\.app-gefahrstoffkataster:has\(#gsk-external\)/);
+assert.match(css, /body#body-public #gsk-external > footer\.external-page-footer\s*\{[^}]*position:static !important/s);
+assert.match(css, /body#body-public #gsk-external \.external-page\s*\{[^}]*overflow:visible/s);
 new Function(adminJs);
 new Function(js);
 console.log('External public page layout, controls and responsive CSS guards passed');

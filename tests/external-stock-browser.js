@@ -70,14 +70,15 @@ for(const access of ['read','stock_editor']){
   assert.match(await page.locator('.external-card').first().innerText(),/2 Gebinde/);
   if(access==='stock_editor'){
    assert.match(await page.locator('#external-access-badge').innerText(),/Bestände bearbeiten/);
-   await page.locator('.external-card details summary').click();
+   await page.locator('.external-card .external-quick-booking > summary').click();
    await page.locator('.external-booking-quantity').fill('1');
-   await page.getByRole('button',{name:'Bestand buchen'}).click();
-   await page.getByText(/Bestandsbuchung gespeichert/).waitFor();
+   await page.getByRole('button',{name:'Änderung speichern'}).click();
+   await page.getByText(/Gespeichert! Neuer Bestand/).waitFor();
    assert.match(await page.locator('.external-card').first().innerText(),/3 Gebinde/);
    assert.equal(bookings,1,'Unexpected booking count');
   }else{
    assert.equal(await page.locator('.external-booking-form').count(),0,'Reader saw booking controls');
+   assert.equal(await page.locator('.external-quick-booking').count(),0,'Reader saw the stock change action');
    assert.equal(bookings,0,'Reader made stock write request');
   }
   assert.deepEqual(errors,[],'Guest script errors');

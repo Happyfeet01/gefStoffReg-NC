@@ -552,9 +552,26 @@ $('external-share-copy').addEventListener('click',async()=>{
     notice('Bitte den markierten Link manuell kopieren.');
   }
 });
+function setShareTab(name){
+  const external=name==='external';
+  for(const [tabId,panelId,selected] of [
+    ['share-tab-internal','share-internal-panel',!external],
+    ['share-tab-external','share-external-panel',external],
+  ]){
+    const tab=$(tabId);
+    tab.setAttribute('aria-selected',String(selected));
+    tab.tabIndex=selected?0:-1;
+    $(panelId).hidden=!selected;
+  }
+}
+$('share-tab-internal').addEventListener('click',()=>setShareTab('internal'));
+$('share-tab-external').addEventListener('click',()=>setShareTab('external'));
 $('manage-shares').addEventListener('click',async()=>{
-  try{await Promise.all([loadShares(),loadExternalLinks()]);show('sharing-dialog')}
-  catch(err){notice(err.message,true)}
+  try{
+    await Promise.all([loadShares(),loadExternalLinks()]);
+    setShareTab('internal');
+    show('sharing-dialog');
+  }catch(err){notice(err.message,true)}
 });
 $('sharing-form').addEventListener('submit',async event=>{
   event.preventDefault();

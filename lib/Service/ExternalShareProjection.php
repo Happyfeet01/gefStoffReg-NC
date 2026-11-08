@@ -103,4 +103,29 @@ final class ExternalShareProjection {
         }
         return ['products'=>$visible,'locations'=>$locations];
     }
+    /**
+     * Preserve the original narrow scope of links issued before v0.1.32.
+     * Never expand an already-distributed capability link by upgrading the app.
+     */
+    public static function legacy(array $view, string $scope): array {
+        $products = [];
+        $allowed = ['id','name','manufacturer','category','material_kind','hazardous'];
+        if ($scope !== 'kataster') {
+            array_push($allowed, 'pack_size', 'unit', 'stock');
+        }
+        if ($scope !== 'lager') {
+            array_push($allowed, 'classification', 'ghs', 'signal',
+                'h_statements', 'sds_date', 'sds_url', 'sds_id');
+        }
+        foreach ($view['products'] ?? [] as $p) {
+            $item = [];
+            foreach ($allowed as $key) {
+                if (array_key_exists($key, $p)) $item[$key] = $p[$key];
+            }
+            $products[] = $item;
+        }
+        // The old public response had location names only inside stock rows.
+        return ['products'=>$products,'locations'=>[]];
+    }
+
 }

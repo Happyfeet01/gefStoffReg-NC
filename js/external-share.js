@@ -58,6 +58,7 @@
   let fullDetails=true;
   let stockEditor=false;
   let guestRecipient='';
+  let bookingFeedback=null;
   let allowedLocations=[];
   window.addEventListener('pagehide',()=>photoUrls.forEach(url=>URL.revokeObjectURL(url)));
 
@@ -195,10 +196,13 @@
     select.addEventListener('change',updateCurrent);
     const submit=el('button','external-booking-submit','Änderung speichern');
     submit.type='submit';
-    form.append(locationLabel,actionLabel,quantityLabel,noteLabel,current,submit);
+    const inlineError=el('p','external-booking-inline-error');
+    inlineError.setAttribute('role','alert');
+    inlineError.hidden=true;
+    form.append(locationLabel,actionLabel,quantityLabel,noteLabel,current,submit,inlineError);
     updateCurrent();
     form.addEventListener('submit',async event=>{
-      event.preventDefault();submit.disabled=true;
+      event.preventDefault();submit.disabled=true;inlineError.hidden=true;
       $('external-error').hidden=true;
       try{
         const locId=Number(select.value);
@@ -217,14 +221,13 @@
         const data=await fresh.json();
         allProducts=Array.isArray(data.products)?data.products:[];
         allowedLocations=Array.isArray(data.locations)?data.locations:[];
+        bookingFeedback={productId:p.id,message:'Gespeichert! Neuer Bestand am gewählten Lagerort: '+format(Number((allProducts.find(item=>item.id===p.id)?.stock||[]).find(row=>Number(row.location_id)===locId)?.packs||0))+' Gebinde.'};
         renderLocations(allowedLocations);
         renderProducts();
-        error('Bestandsbuchung gespeichert. Der aktuelle Bestand wurde neu geladen.');
-        $('external-error').classList.add('external-success');
-        setTimeout(()=>{$('external-error').hidden=true;$('external-error').classList.remove('external-success')},5000);
       }catch(err){
-        error(err.message);
-        $('external-error').classList.remove('external-success');
+        inlineError.textContent=err.message;
+        inlineError.hidden=false;
+        bookingFeedback=null;
         // A concurrent update invalidates the local expected stock. Refresh it.
         if(/409|geändert|konflikt|neu laden/i.test(err.message)){
           try{
@@ -259,6 +262,11 @@
     const occupied=rows.filter(r=>Number(r.packs)>0);
     stock.append(el('p','',occupied.length?occupied.map(r=>r.location).join(' · '):'Kein aktueller Bestand hinterlegt'));
     card.append(stock);
+    }
+    if(bookingFeedback&&bookingFeedback.productId===p.id){
+      const msg=el('p','external-booking-feedback',bookingFeedback.message);
+      msg.setAttribute('role','status');
+      card.append(msg);
     }
 
     if(stockEditor){
@@ -358,6 +366,7 @@
       const data=await response.json();
       const products=Array.isArray(data.products)?data.products:[];
       allProducts=products;
+      bookingFeedback=null;
       currentScope=data.scope;
       fullDetails=data.full_details===true;
       stockEditor=data.access==='stock_editor' && fullDetails;

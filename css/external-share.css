@@ -727,3 +727,25 @@ body#body-public #gsk-external > footer.external-page-footer {
   font-size:13px;
   line-height:1.45;
 }
+
+
+#gsk-external .external-location-overview > summary.external-section-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:44px;
+  margin:0;
+  padding:0;
+  list-style:none;
+  cursor:pointer;
+  color:var(--gsk-ink);
+  font-size:14px;
+}
+#gsk-external .external-location-overview > summary.external-section-heading::-webkit-details-marker {display:none}
+#gsk-external .external-location-overview[open] > summary.external-section-heading {margin-bottom:12px}
+#gsk-external .external-location-overview > summary.external-section-heading:focus-visible {
+  outline:2px solid var(--gsk-primary);
+  outline-offset:3px;
+  border-radius:6px;
+}

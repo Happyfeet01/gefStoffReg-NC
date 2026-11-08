@@ -71,16 +71,16 @@ final class ExternalStockBookingService {
         if (!preg_match('/^external:[a-f0-9]{16}$/D',$actor)) {
             throw new \InvalidArgumentException('Ungültige Zugangskennung.');
         }
-        $productRow=$this->one('gsk_product',$p['product_id']);
-        if ($productRow===null || !$this->one('gsk_location',$p['location_id'])) {
-            throw new \InvalidArgumentException('Produkt oder Lagerort unbekannt.');
-        }
-        $details=json_decode((string)$productRow['details'],true);
-        if (!is_array($details) || !self::allowsProduct($details,$scope)) {
-            throw new \DomainException('Produkt gehört nicht zur Freigabe.');
-        }
         try {
             $this->db->beginTransaction();
+            $productRow=$this->one('gsk_product',$p['product_id']);
+            if ($productRow===null || !$this->one('gsk_location',$p['location_id'])) {
+                throw new \InvalidArgumentException('Produkt oder Lagerort unbekannt.');
+            }
+            $details=json_decode((string)$productRow['details'],true);
+            if (!is_array($details) || !self::allowsProduct($details,$scope)) {
+                throw new \DomainException('Produkt gehört nicht zur Freigabe.');
+            }
             $qb=$this->db->getQueryBuilder();
             $current=$qb->select('*')->from('gsk_stock')
                 ->where($qb->expr()->eq('product_id',$qb->createNamedParameter($p['product_id'],IQueryBuilder::PARAM_INT)))

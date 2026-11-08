@@ -28,16 +28,20 @@ const make = id => ({
     return elements.submit;
   },
   replaceChildren() {},
+  add() {},
+  append() {},
+  childElementCount:0,
 });
 for (const id of ['gsk-external','external-password-toggle','external-password','external-unlock',
   'external-error','external-auth','external-content','external-products','external-label',
-  'external-info','external-count','external-empty']) elements[id] = make(id);
+  'external-info','external-count','external-empty','external-search',
+  'external-location-filter','external-locations','external-locations-count']) elements[id] = make(id);
 elements.submit=make('submit');
 const calls=[];
 const context={
-  document:{getElementById:id=>elements[id] || null},
-  window:{location:{href:'https://cloud.example.test/index.php/apps/gefahrstoffkataster/shared/abc',origin:'https://cloud.example.test'}},
-  URL, URLSearchParams, Intl, Date, console,
+  document:{getElementById:id=>elements[id] || null, createElement:tag=>make(tag)},
+  window:{location:{href:'https://cloud.example.test/index.php/apps/gefahrstoffkataster/shared/abc',origin:'https://cloud.example.test'},addEventListener(){}},
+  URL, URLSearchParams, Intl, Date, console, Option:class {constructor(label,value){this.text=label;this.value=value}},
   fetch:async (url, options)=>{
     calls.push({url,options});
     return {ok:true,status:200,json:async ()=>({

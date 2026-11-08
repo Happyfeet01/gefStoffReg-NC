@@ -148,6 +148,14 @@ final class ExternalShareController extends Controller {
             if (!$fullDetails) $projection = ExternalShareProjection::legacy($projection, $entry['scope']);
             $products = $projection['products'];
             $locations = $projection['locations'];
+            // Editors may receive stock at any existing location, including
+            // locations with no stock yet; read-only Kataster remains narrowed.
+            if ($fullDetails && ($entry['access'] ?? 'read') === 'stock_editor'
+                && !empty($entry['password_hash']) && $entry['scope'] === 'kataster') {
+                $locations = array_map(static fn(array $row): array => [
+                    'id'=>(int)$row['id'],'name'=>(string)$row['name']
+                ], $this->rows('gsk_location'));
+            }
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
                 ['link_id' => substr(hash('sha256', $token), 0, 12), 'scope' => $entry['scope']]);
             return $this->noStore(new DataResponse([

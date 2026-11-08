@@ -52,6 +52,7 @@
   const photoUrls=[];
   let allProducts=[];
   let currentScope='kataster';
+  let fullDetails=true;
   window.addEventListener('pagehide',()=>photoUrls.forEach(url=>URL.revokeObjectURL(url)));
 
   function error(message) {
@@ -156,12 +157,14 @@
     const rows=Array.isArray(p.stock)?p.stock:[];
     const packs=rows.reduce((sum,r)=>sum+Number(r.packs||0),0);
     const size=Number(p.pack_size||0);
+    if(fullDetails||scope!=='kataster'){
     const stock=el('div','external-stock');
     const amount=size>0?format(packs*size)+' '+(p.unit||''):'';
     stock.append(el('strong','','Bestand: '+format(packs)+' Gebinde'+(amount?' · '+amount:'')));
     const occupied=rows.filter(r=>Number(r.packs)>0);
     stock.append(el('p','',occupied.length?occupied.map(r=>r.location).join(' · '):'Kein aktueller Bestand hinterlegt'));
     card.append(stock);
+    }
 
     const details=el('details','external-product-details');
     const summary=el('summary','external-detail-toggle','Produktdetails anzeigen');
@@ -176,6 +179,7 @@
       ['Lagerbedingungen / Hinweise',p.storage_note],
     ]);
     if(general)content.append(general);
+    if(fullDetails||scope!=='kataster'){
     const store=el('section','external-detail-section');
     store.append(el('h4','','Lagerorte und Bestände'));
     if(rows.length){
@@ -189,6 +193,7 @@
       store.append(list);
     }else{store.append(el('p','external-muted','Kein Bestand für dieses Produkt hinterlegt.'))}
     content.append(store);
+    }
     if(includeSafety&&p.hazardous){
       const safety=fieldGroup('Gefahrstoffangaben',[
         ['UFI',p.ufi],['Einstufung',p.classification],['GHS-Codes',p.ghs],
@@ -221,6 +226,8 @@
   }
   function renderLocations(locations){
     const area=$('external-locations'),select=$('external-location-filter');
+    $('external-location-overview').hidden=!fullDetails;
+    $('external-location-filter-wrap').hidden=!fullDetails;
     area.replaceChildren();
     select.replaceChildren(new Option('Alle Lagerorte',''));
     for(const loc of locations){
@@ -251,6 +258,10 @@
       const products=Array.isArray(data.products)?data.products:[];
       allProducts=products;
       currentScope=data.scope;
+      fullDetails=data.full_details===true;
+      $('external-readonly-explainer').textContent=fullDetails
+        ?'Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.'
+        :'Dies ist eine ältere, eingeschränkte Freigabe. Für sämtliche Bestände, Lagerorte und Fotos muss der Verwalter einen neuen Leselink erstellen.';
       renderLocations(Array.isArray(data.locations)?data.locations:[]);
       renderProducts();
       $('external-label').textContent=data.label||'Freigabe';

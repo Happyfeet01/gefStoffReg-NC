@@ -1,4 +1,4 @@
-const state = {view:'lager',products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
+const state = {view:'lager',permissions:{},shareRevision:null,products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
 const $ = id => document.getElementById(id);
 const url = path => OC.generateUrl('/apps/gefahrstoffkataster'+path);
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
@@ -18,7 +18,11 @@ async function load(){
       let detail='';try{const body=await r.json();detail=body.error||''}catch{}
       throw Error(`Laden fehlgeschlagen (HTTP ${r.status})${detail?': '+detail:''}.`);
     }
-    const data=await r.json();state.products=data.products;state.locations=data.locations;render();$('load-error').hidden=true;
+    const data=await r.json();state.products=data.products;state.locations=data.locations;state.permissions=data.permissions||{};
+    $('manage-shares').hidden=!state.permissions.manage;
+    $('new-product').hidden=!state.permissions.editBasic;
+    $('add-location').hidden=!state.permissions.manage;
+    render();$('load-error').hidden=true;
   }catch(err){$('load-error-text').textContent=err.message;$('load-error').hidden=false;notice(err.message,true)}
 }
 function optionize(select,selected,allLabel){
@@ -72,7 +76,10 @@ function render(){
     top.append(details);card.append(top);
     const total=p.stock.reduce((a,s)=>a+s.packs,0);const quantity=el('div','card-stock');quantity.append(el('strong','',`${format(total*p.pack_size)} ${p.unit}`),el('small','',`${format(total)} × ${format(p.pack_size)} ${p.unit}`));card.append(quantity);
     const places=el('div','card-locations');for(const s of p.stock.filter(s=>s.packs>0)){const place=state.locations.find(l=>l.id===s.location_id);places.append(el('span','place',`${place?.name||'?'}: ${format(s.packs)} Gebinde`))}if(!places.childElementCount)places.append(el('span','', 'Noch kein Bestand'));card.append(places);
-    const actions=el('div','actions');actions.append(button('Bestand ändern',()=>openStock(p)),button('Bearbeiten',()=>openProduct(p)));
+    const actions=el('div','actions');
+    if(state.permissions.stock)actions.append(button('Bestand ändern',()=>openStock(p)));
+    const mayEdit=state.permissions.editSafety||(state.permissions.editBasic&&!p.hazardous&&['consumable','other'].includes(p.material_kind));
+    actions.append(button(mayEdit?'Bearbeiten':'Ansehen',()=>openProduct(p)));
     if(p.sds_review)details.append(el('span','badge'+(p.sds_review.status==='unclear'?' warn':''),sdsReviewLabel(p.sds_review.status)));
     if(p.sds_id){const link=el('a','', 'SDB herunterladen ↗');link.href=url(`/api/files/${p.sds_id}`);link.target='_blank';link.rel='noopener';actions.append(link)}
     if(p.source_url){const link=el('a','', 'Herstellerseite ↗');link.href=p.source_url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link)}
@@ -93,7 +100,9 @@ function openProduct(p=null){
   $('lookup-result').hidden=true;$('lookup-result').replaceChildren();
   $('source-result').hidden=true;$('source-result').replaceChildren();
   $('sds-research-result').hidden=true;$('sds-research-result').replaceChildren();
-  $('dialog-title').textContent=p?'Produkt bearbeiten':'Produkt erfassen';$('initial-stock').hidden=!!p;
+  const canSafety=!!state.permissions.editSafety;
+  const canEdit=canSafety||!!state.permissions.editBasic&&(!p||(!p.hazardous&&['consumable','other'].includes(p.material_kind)));
+  $('dialog-title').textContent=p?(canEdit?'Produkt bearbeiten':'Produkt ansehen'):'Produkt erfassen';$('initial-stock').hidden=!!p;
   $('initial-packs').required=!p;$('initial-location').required=!p;
   optionize($('initial-location'),String(state.locations[0]?.id||''));
   if(p){for(const name of ['name','manufacturer','article','ean','ufi','category','use_area','pack_size','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url']){
@@ -101,11 +110,18 @@ function openProduct(p=null){
     if(field.tagName==='SELECT'&&value&&!Array.from(field.options).some(option=>option.value===String(value)))field.add(new Option(String(value),String(value)));
     field.value=value;
   }f.elements.hazardous.checked=!!p.hazardous}
-  f.elements.material_kind.value=p?.material_kind||'unclassified';
+  f.elements.material_kind.value=p?.material_kind||(!canSafety&&canEdit?'consumable':'unclassified');
   const links=$('current-files');links.replaceChildren();
   if(p?.sds_id){const a=el('a','', 'Vorhandenes SDB ↗');a.href=url(`/api/files/${p.sds_id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   for(const photo of p?.photos||[]){const a=el('a','',photo.filename+' ↗');a.href=url(`/api/files/${photo.id}`);a.target='_blank';a.rel='noopener';links.append(a)}
   setupSdsAnalysis();
+  for(const control of f.querySelectorAll('.form-section input,.form-section select,.form-section textarea,.form-section button')){
+    const section=control.closest('.form-section');
+    control.disabled=!canEdit||(!canSafety&&section?.id!=='product-basics');
+  }
+  // Stock editors may attach photos to explicitly categorized non-hazardous materials.
+  if(canEdit&&!canSafety){$('photo-gallery').disabled=false;$('photo-camera').disabled=false}
+  $('save-product').hidden=!canEdit;
   show('product-dialog');
 }
 function lookupMessage(message){const box=$('lookup-result');box.replaceChildren(el('p','',message));box.hidden=false;box.scrollIntoView({block:'nearest',behavior:'smooth'});return box}
@@ -452,6 +468,41 @@ $('stock-form').addEventListener('submit',async event=>{
   event.preventDefault();const save=$('save-stock');save.disabled=true;
   try{await request('/api/stock',{product_id:state.stockProduct.id,location_id:Number($('stock-location').value),action:$('stock-action').value,packs:Number($('stock-packs').value),note:$('stock-note').value});close('stock-dialog');await load();notice('Bestand gebucht.')}
   catch(err){notice(err.message,true)}finally{save.disabled=false}
+});
+const shareRoleLabels={reader:'Lesen',stock_editor:'Lager bearbeiten',hazard_editor:'Gefahrstoffdaten bearbeiten',manager:'Verwalten'};
+async function loadShares(){
+  const response=await fetch(url('/api/shares'));
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Freigaben konnten nicht geladen werden.');
+  state.shareRevision=data.revision;
+  const list=$('share-list');list.replaceChildren();
+  for(const [kind,items] of [['user',data.shares.users||{}],['group',data.shares.groups||{}]]){
+    for(const [id,role] of Object.entries(items)){
+      const line=el('div','share-row');
+      line.append(el('div','',`${kind==='user'?'Benutzer':'Gruppe'}: ${id} · ${shareRoleLabels[role]||role}`));
+      line.append(button('Entziehen',async()=>{
+        try{
+          await request('/api/shares/revoke',{type:kind,id,revision:state.shareRevision});
+          await loadShares();notice('Freigabe entzogen.');
+        }catch(err){notice(err.message,true);await loadShares().catch(()=>{})}
+      }));
+      list.append(line);
+    }
+  }
+  if(!list.childElementCount)list.append(el('p','hint','Noch keine zusätzlichen Freigaben.'));
+}
+$('manage-shares').addEventListener('click',async()=>{
+  try{await loadShares();show('sharing-dialog')}catch(err){notice(err.message,true)}
+});
+$('sharing-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const submit=event.currentTarget.querySelector('[type=submit]');submit.disabled=true;
+  try{
+    await request('/api/shares',{type:$('share-type').value,id:$('share-id').value.trim(),
+      role:$('share-role').value,revision:state.shareRevision});
+    await loadShares();$('share-id').value='';notice('Freigabe gespeichert.');
+  }catch(err){notice(err.message,true);await loadShares().catch(()=>{})}
+  finally{submit.disabled=false}
 });
 $('view-lager').addEventListener('click',()=>setView('lager'));
 $('view-gefahr').addEventListener('click',()=>setView('gefahr'));

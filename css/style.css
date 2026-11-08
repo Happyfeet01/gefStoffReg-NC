@@ -233,3 +233,11 @@
 @media(max-width:720px) {
   #gsk-app .share-tabs button {flex:1;padding:10px 6px;font-size:14px}
 }
+
+
+#gsk-app #external-share-form .external-password-control {display:flex;align-items:stretch;gap:8px;min-width:0;margin-top:6px}
+#gsk-app #external-share-form #external-share-password {flex:1;min-width:0;width:100%}
+#gsk-app #external-share-form .external-password-toggle {flex:none;min-height:42px;padding:8px 13px;border:1px solid var(--gsk-border);border-radius:8px}
+@media(max-width:450px) {
+  #gsk-app #external-share-form .external-password-toggle {padding:7px 10px;font-size:12px}
+}

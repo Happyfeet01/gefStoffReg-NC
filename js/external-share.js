@@ -5,6 +5,7 @@
   const $=id=>document.getElementById(id);
   const api=root.dataset.apiUrl;
   const filePattern=root.dataset.filePattern;
+  const stockUrl=root.dataset.stockUrl;
   let password='';
   const scopeNames={kataster:'Gefahrstoffkataster',lager:'Lager',both:'Lager und Gefahrstoffkataster'};
   const kindNames={chemical:'Chemikalien',consumable:'Verbrauchsmaterial',other:'Sonstiges',unclassified:'Nicht zugeordnet'};
@@ -17,16 +18,18 @@
   };
   // Nextcloud's IRequest reliably parses application/x-www-form-urlencoded POST data.
   // Keep requests same-origin so a link cannot redirect the password elsewhere.
-  async function authenticatedFetch(endpoint){
+  async function authenticatedFetch(endpoint,booking=null){
     const target=new URL(endpoint,window.location.href);
     if(target.origin!==window.location.origin)throw new Error('Ungültiger Freigabe-Endpunkt.');
+    const headers={
+      'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
+      'Accept':'application/json, application/pdf',
+    };
+    if(booking!==null)headers['X-GSK-Stock-Action']='1';
     const response=await fetch(target.href,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
-        'Accept':'application/json, application/pdf',
-      },
-      body:new URLSearchParams({password}),
+      headers,
+      body:new URLSearchParams(booking===null?{password}:{password,booking:JSON.stringify(booking)}),
       credentials:'same-origin',
       redirect:'error',
       cache:'no-store',
@@ -53,6 +56,9 @@
   let allProducts=[];
   let currentScope='kataster';
   let fullDetails=true;
+  let stockEditor=false;
+  let guestRecipient='';
+  let allowedLocations=[];
   window.addEventListener('pagehide',()=>photoUrls.forEach(url=>URL.revokeObjectURL(url)));
 
   function error(message) {
@@ -145,6 +151,90 @@
     }
     return section.childElementCount>1?section:null;
   }
+  function bookingForm(p) {
+    const section=el('section','external-detail-section external-booking-section');
+    section.append(el('h4','','Bestand buchen'));
+    const info=el('p','external-muted','Zugang, Entnahme oder Bestandskorrektur. Die Buchung wird deiner persönlichen Freigabe zugeordnet.');
+    section.append(info);
+    const form=el('form','external-booking-form');
+    const locationLabel=el('label','','Lagerort');
+    const select=el('select','external-booking-location');
+    select.required=true;
+    const options=allowedLocations.slice().sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    for(const loc of options){
+      const option=el('option','',loc.name);
+      option.value=String(loc.id);
+      select.append(option);
+    }
+    locationLabel.append(select);
+    const actionLabel=el('label','','Buchung');
+    const action=el('select','external-booking-action');
+    for(const [value,title] of [['add','Zugang'],['remove','Entnahme'],['set','Bestand korrigieren']]){
+      const option=el('option','',title);option.value=value;action.append(option);
+    }
+    actionLabel.append(action);
+    const quantityLabel=el('label','','Gebindeanzahl');
+    const qty=el('input','external-booking-quantity');
+    qty.type='number';qty.min='0';qty.step='0.001';qty.required=true;qty.placeholder='z. B. 2';
+    quantityLabel.append(qty);
+    const noteLabel=el('label','','Notiz (optional)');
+    const note=el('input','external-booking-note');note.maxLength=200;
+    note.placeholder='z. B. Lieferung oder Entnahmegrund';
+    noteLabel.append(note);
+    const current=el('p','external-muted');
+    const updateCurrent=()=>{
+      const stock=(p.stock||[]).find(row=>String(row.location_id)===select.value);
+      const count=Number(stock?.packs||0);
+      current.textContent='Aktuell: '+format(count)+' Gebinde';
+    };
+    select.addEventListener('change',updateCurrent);
+    const submit=el('button','external-booking-submit','Bestand buchen');
+    submit.type='submit';
+    form.append(locationLabel,actionLabel,quantityLabel,noteLabel,current,submit);
+    updateCurrent();
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();submit.disabled=true;
+      $('external-error').hidden=true;
+      try{
+        const locId=Number(select.value);
+        const prev=(p.stock||[]).find(row=>Number(row.location_id)===locId);
+        const expected_milli=Math.round(Number(prev?.packs||0)*1000);
+        const quantity=Number(qty.value);
+        if(!Number.isFinite(quantity)||quantity<0||quantity>1000000)throw Error('Gebindeanzahl ungültig.');
+        const payload={
+          product_id:p.id, location_id:locId,
+          action:action.value,packs:quantity,note:note.value.trim(),expected_milli,
+        };
+        const response=await authenticatedFetch(stockUrl,payload);
+        await response.json();
+        // Reload from server after booking; never trust local arithmetic as stock truth.
+        const fresh=await authenticatedFetch(api);
+        const data=await fresh.json();
+        allProducts=Array.isArray(data.products)?data.products:[];
+        allowedLocations=Array.isArray(data.locations)?data.locations:[];
+        renderLocations(allowedLocations);
+        renderProducts();
+        error('Bestandsbuchung gespeichert. Der aktuelle Bestand wurde neu geladen.');
+        $('external-error').classList.add('external-success');
+        setTimeout(()=>{$('external-error').hidden=true;$('external-error').classList.remove('external-success')},5000);
+      }catch(err){
+        error(err.message);
+        $('external-error').classList.remove('external-success');
+        // A concurrent update invalidates the local expected stock. Refresh it.
+        if(/409|geändert|konflikt|neu laden/i.test(err.message)){
+          try{
+            const reload=await authenticatedFetch(api);
+            const latest=await reload.json();
+            allProducts=Array.isArray(latest.products)?latest.products:[];
+            renderProducts();
+          }catch{}
+        }
+      }finally{submit.disabled=false}
+    });
+    section.append(form);
+    return section;
+  }
+
   function renderProduct(p,scope){
     const includeSafety=scope!=='lager';
     const card=el('article','external-card');
@@ -204,6 +294,7 @@
     }
     const documents=linkGroup(p,includeSafety);
     if(documents)content.append(documents);
+    if(stockEditor)content.append(bookingForm(p));
     details.append(content);card.append(details);
     return card;
   }
@@ -259,10 +350,15 @@
       allProducts=products;
       currentScope=data.scope;
       fullDetails=data.full_details===true;
+      stockEditor=data.access==='stock_editor' && fullDetails;
+      guestRecipient=stockEditor?String(data.recipient||''):'';
+      allowedLocations=Array.isArray(data.locations)?data.locations:[];
+      $('external-access-info').hidden=false;
+      $('external-access-info').textContent=stockEditor?'Bestände bearbeiten · Persönlicher Zugang: '+guestRecipient+' · Keine Änderung von Stammdaten oder Gefahrstoffangaben':'Nur Lesezugriff';
       $('external-readonly-explainer').textContent=fullDetails
         ?'Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.'
         :'Dies ist eine ältere, eingeschränkte Freigabe. Für sämtliche Bestände, Lagerorte und Fotos muss der Verwalter einen neuen Leselink erstellen.';
-      renderLocations(Array.isArray(data.locations)?data.locations:[]);
+      renderLocations(allowedLocations);
       renderProducts();
       $('external-label').textContent=data.label||'Freigabe';
       const expiry=new Date(Number(data.expires_at)*1000);

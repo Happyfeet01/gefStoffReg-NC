@@ -119,6 +119,11 @@ declare(strict_types=1);
   <dialog id="sharing-dialog" aria-labelledby="sharing-title">
     <header class="dialog-head"><div><h2 id="sharing-title">Freigaben verwalten</h2><p class="hint">Nextcloud-Benutzer oder -Gruppen mit passenden Rechten einladen.</p></div><button class="close" type="button" data-close="sharing-dialog" aria-label="Freigaben schließen">×</button></header>
     <div class="dialog-scroll">
+      <div class="share-tabs" role="tablist" aria-label="Freigabeart">
+        <button id="share-tab-internal" role="tab" type="button" aria-selected="true" aria-controls="share-internal-panel">Nextcloud-Nutzer</button>
+        <button id="share-tab-external" role="tab" type="button" aria-selected="false" aria-controls="share-external-panel" tabindex="-1">Externe Links</button>
+      </div>
+      <section id="share-internal-panel" role="tabpanel" aria-labelledby="share-tab-internal" class="share-panel">
       <form id="sharing-form">
         <div class="grid">
           <label>Freigeben an<select id="share-type" required><option value="user">Benutzer</option><option value="group">Gruppe</option></select></label>
@@ -131,6 +136,29 @@ declare(strict_types=1);
       <h3 class="share-heading">Aktuelle Freigaben</h3>
       <div id="share-list" aria-live="polite"></div>
       <p class="hint">Die bisherige Nextcloud-Gruppe freibad-gefahrstoffe behält vorerst ihre bisherigen Rechte. Ihre Mitgliedschaft wird weiterhin in Nextcloud verwaltet. Die Freigaben gelten derzeit für den gesamten App-Bestand, noch nicht pro Standort.</p>
+      </section>
+      <section id="share-external-panel" class="external-share-manager share-panel" role="tabpanel" aria-labelledby="share-tab-external" hidden>
+        <h3 id="external-share-title">Externe Links (ohne Nextcloud-Konto)</h3>
+        <p class="hint">Externe Links erlauben ausschließlich Lesen. Du kannst sie befristen, mit einem Passwort schützen und jederzeit widerrufen.</p>
+        <form id="external-share-form">
+          <div class="grid">
+            <label class="full">Bezeichnung<input id="external-share-label" required maxlength="100" placeholder="z. B. Hygieneinstitut – November"></label>
+            <label>Freigabebereich<select id="external-share-scope"><option value="kataster">Nur Gefahrstoffkataster</option><option value="lager">Nur Lager</option><option value="both">Lager und Gefahrstoffkataster</option></select></label>
+            <label>Gültigkeit<select id="external-share-days"><option value="1">1 Tag</option><option value="7" selected>7 Tage</option><option value="30">30 Tage</option></select></label>
+            <label class="full">Zusätzliches Passwort (empfohlen)<input id="external-share-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Mindestens 12 Zeichen, wenn gesetzt"></label>
+          </div>
+          <div class="share-form-actions"><button class="primary" type="submit">Externen Leselink erstellen</button></div>
+        </form>
+        <div id="external-share-created" class="external-share-created" hidden>
+          <p><strong>Freigabelink erstellt</strong> – nur jetzt vollständig sichtbar. Link und Passwort am besten getrennt übermitteln.</p>
+          <div class="external-share-copy">
+            <input id="external-share-created-url" type="text" readonly aria-label="Neu erstellter Freigabelink">
+            <button id="external-share-copy" type="button" class="secondary">Link kopieren</button>
+          </div>
+        </div>
+        <h4>Aktive und abgelaufene Links</h4>
+        <div id="external-share-list" aria-live="polite"></div>
+      </section>
     </div>
   </dialog>
   <dialog id="stock-dialog" aria-labelledby="stock-title">

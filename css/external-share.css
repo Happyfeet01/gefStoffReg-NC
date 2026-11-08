@@ -1,0 +1,26 @@
+#gsk-external {max-width:1060px;margin:30px auto 70px;padding:0 24px;color:var(--color-main-text,#1e293b)}
+#gsk-external .external-head {padding:24px 0 18px;border-bottom:1px solid var(--color-border,#ddd)}
+#gsk-external .external-eyebrow {font-size:12px;letter-spacing:.11em;font-weight:700;text-transform:uppercase;opacity:.7}
+#gsk-external h1 {font-size:clamp(26px,4vw,38px);line-height:1.2;margin:10px 0}
+#gsk-external .external-auth {margin:22px 0}
+#gsk-external #external-unlock {display:flex;align-items:end;flex-wrap:wrap;gap:10px}
+#gsk-external #external-unlock label {width:100%;font-weight:600}
+#gsk-external #external-password {min-width:260px;min-height:42px;border:1px solid var(--color-border,#aaa);border-radius:8px;padding:8px 12px}
+#gsk-external button {background:var(--color-primary-element,#00679e);color:var(--color-primary-element-text,#fff);border:0;border-radius:8px;min-height:42px;padding:8px 16px;cursor:pointer}
+#gsk-external button:disabled {opacity:.5;cursor:not-allowed}
+#gsk-external #external-error {color:var(--color-error,#ae1c20);margin-top:10px}
+#gsk-external .external-summary {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin:20px 0}
+#gsk-external .external-summary h2 {font-size:23px;margin:0 0 5px}
+#gsk-external .external-summary p,#gsk-external .external-muted,#gsk-external .external-footnote {opacity:.7}
+#gsk-external .external-products {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:16px}
+#gsk-external .external-card {border:1px solid var(--color-border,#ddd);border-radius:12px;padding:20px;overflow-wrap:anywhere;background:var(--color-main-background,#fff)}
+#gsk-external .external-card h3 {margin:0 0 6px;font-size:19px}
+#gsk-external .external-badge {display:inline-block;padding:4px 9px;background:var(--color-background-dark,#eee);border-radius:100px;font-size:12px;font-weight:700}
+#gsk-external .external-stock {margin-top:15px;padding:10px;border-radius:8px;background:var(--color-background-hover,#f5f5f5)}
+#gsk-external .external-stock p {margin:6px 0 0;font-size:13px}
+#gsk-external .external-safety {margin:14px 0 0}
+#gsk-external .external-safety dt {font-size:12px;font-weight:700;opacity:.75}
+#gsk-external .external-safety dd {margin:0 0 10px;white-space:pre-wrap;line-height:1.45}
+#gsk-external .external-actions {display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:15px}
+#gsk-external a.external-link {text-decoration:underline}
+#gsk-external .external-footnote {margin:28px 0;font-size:12px}

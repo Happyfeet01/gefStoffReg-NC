@@ -206,8 +206,15 @@ final class ExternalShareController extends Controller {
         $product = $this->one('gsk_product', (int)$file['product_id']);
         if (!$product) return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         $p = json_decode($product['details'], true);
-        if (!is_array($p) || ($entry['scope'] === 'kataster' && empty($p['hazardous']))) {
+        if (!is_array($p) || empty($p['hazardous'])) {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+        }
+        // Expose only the latest SDB, exactly as in the public product listing.
+        foreach ($this->rows('gsk_file') as $candidate) {
+            if ($candidate['kind'] === 'sds' && (int)$candidate['product_id'] === (int)$file['product_id']
+                && (int)$candidate['id'] > $id) {
+                return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+            }
         }
         try {
             $folder = $this->appData->getFolder('documents');

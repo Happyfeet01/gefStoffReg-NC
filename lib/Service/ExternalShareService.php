@@ -39,6 +39,7 @@ final class ExternalShareService {
                 'expires_at' => (int)($entry['expires_at'] ?? 0),
                 'created_at' => (int)($entry['created_at'] ?? 0),
                 'password_protected' => !empty($entry['password_hash']),
+                'full_details' => !empty($entry['full_details']),
                 'expired' => (int)($entry['expires_at'] ?? 0) <= time(),
             ];
         }
@@ -70,6 +71,7 @@ final class ExternalShareService {
             'expires_at' => $now + $days * 86400,
             'password_hash' => $password === '' ? '' : password_hash($password, PASSWORD_DEFAULT),
             'created_by' => $actor,
+            'full_details' => true,
         ];
         $this->save($entries);
         return ['token' => $token, 'id' => $hash, 'expires_at' => $entries[$hash]['expires_at']];

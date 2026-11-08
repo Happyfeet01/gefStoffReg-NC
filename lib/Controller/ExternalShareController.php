@@ -131,65 +131,88 @@ final class ExternalShareController extends Controller {
             return $this->deniedPublic();
         }
         try {
-            $includeKataster = in_array($entry['scope'], ['kataster','both'], true);
-            $includeLager = in_array($entry['scope'], ['lager','both'], true);
-            $stock = [];
-            $locations = [];
-            if ($includeLager) {
-                foreach ($this->rows('gsk_location') as $place) {
-                    $locations[(int)$place['id']] = (string)$place['name'];
-                }
-                foreach ($this->rows('gsk_stock') as $row) {
-                    $stock[(int)$row['product_id']][] = [
-                        'location' => $locations[(int)$row['location_id']] ?? 'Unbekannter Lagerort',
-                        'packs' => (int)$row['milli'] / 1000,
-                    ];
-                }
+            // A share narrows WHICH products are readable, not the stock detail
+            // displayed for a permitted product. The Kataster view must show
+            // quantities and storage locations just like the internal view.
+            $scope = $entry['scope'];
+            $hazardDetails = $scope !== 'lager';
+            $allLocations = [];
+            foreach ($this->rows('gsk_location') as $place) {
+                $allLocations[(int)$place['id']] = (string)$place['name'];
             }
+            $stock = [];
+            foreach ($this->rows('gsk_stock') as $row) {
+                $pid = (int)$row['product_id'];
+                $lid = (int)$row['location_id'];
+                $stock[$pid][] = [
+                    'location_id' => $lid,
+                    'location' => $allLocations[$lid] ?? 'Unbekannter Lagerort',
+                    'packs' => (int)$row['milli'] / 1000,
+                ];
+            }
+            $photos = [];
             $sds = [];
-            if ($includeKataster) {
-                foreach ($this->rows('gsk_file') as $file) {
-                    if ($file['kind'] === 'sds') {
-                        $pid = (int)$file['product_id'];
-                        if (!isset($sds[$pid]) || (int)$file['id'] > $sds[$pid]) $sds[$pid] = (int)$file['id'];
-                    }
+            foreach ($this->rows('gsk_file') as $file) {
+                $pid = (int)$file['product_id'];
+                if ($file['kind'] === 'photo') {
+                    $photos[$pid][] = [
+                        'id' => (int)$file['id'],
+                        'filename' => (string)$file['filename'],
+                    ];
+                } elseif ($file['kind'] === 'sds') {
+                    $fid = (int)$file['id'];
+                    if (!isset($sds[$pid]) || $fid > $sds[$pid]) $sds[$pid] = $fid;
                 }
             }
             $products = [];
+            $usedLocationIds = [];
             foreach ($this->rows('gsk_product') as $row) {
                 $p = json_decode($row['details'], true);
                 if (!is_array($p)) continue;
-                if ($entry['scope'] === 'kataster' && empty($p['hazardous'])) continue;
+                if ($scope === 'kataster' && empty($p['hazardous'])) continue;
                 $id = (int)$row['id'];
                 $item = [
                     'id' => $id,
                     'name' => (string)($p['name'] ?? ''),
                     'manufacturer' => (string)($p['manufacturer'] ?? ''),
+                    'article' => (string)($p['article'] ?? ''),
+                    'ean' => (string)($p['ean'] ?? ''),
                     'category' => (string)($p['category'] ?? ''),
                     'material_kind' => (string)($p['material_kind'] ?? 'unclassified'),
+                    'use_area' => (string)($p['use_area'] ?? ''),
                     'hazardous' => !empty($p['hazardous']),
+                    'pack_size' => (float)($p['pack_size'] ?? 0),
+                    'unit' => (string)($p['unit'] ?? ''),
+                    'storage_note' => (string)($p['storage_note'] ?? ''),
+                    'source_url' => (string)($p['source_url'] ?? ''),
+                    'pmb_url' => (string)($p['pmb_url'] ?? ''),
+                    'stock' => $stock[$id] ?? [],
+                    'photos' => $photos[$id] ?? [],
                 ];
-                if ($includeLager) {
-                    $item['pack_size'] = (float)($p['pack_size'] ?? 0);
-                    $item['unit'] = (string)($p['unit'] ?? '');
-                    $item['stock'] = $stock[$id] ?? [];
+                foreach ($item['stock'] as $stockEntry) {
+                    $usedLocationIds[$stockEntry['location_id']] = true;
                 }
-                if ($includeKataster && !empty($p['hazardous'])) {
-                    $item['classification'] = (string)($p['classification'] ?? '');
-                    $item['ghs'] = (string)($p['ghs'] ?? '');
-                    $item['signal'] = (string)($p['signal'] ?? '');
-                    $item['h_statements'] = (string)($p['h_statements'] ?? '');
-                    $item['sds_date'] = (string)($p['sds_date'] ?? '');
-                    $item['sds_url'] = (string)($p['sds_url'] ?? '');
+                if ($hazardDetails && $item['hazardous']) {
+                    foreach (['ufi','classification','ghs','signal','h_statements','sds_date','checked_at','sds_url'] as $field) {
+                        $item[$field] = (string)($p[$field] ?? '');
+                    }
                     $item['sds_id'] = $sds[$id] ?? null;
                 }
                 $products[] = $item;
+            }
+            // Kataster-only links expose only locations where visible hazardous
+            // products are stocked. Warehouse/both links include all locations.
+            $locations = [];
+            foreach ($allLocations as $id => $name) {
+                if ($scope !== 'kataster' || isset($usedLocationIds[$id])) {
+                    $locations[] = ['id' => $id, 'name' => $name];
+                }
             }
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
                 ['link_id' => substr(hash('sha256', $token), 0, 12), 'scope' => $entry['scope']]);
             return $this->noStore(new DataResponse([
                 'scope' => $entry['scope'], 'label' => $entry['label'], 'expires_at' => $entry['expires_at'],
-                'products' => $products,
+                'products' => $products, 'locations' => $locations,
             ]));
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Externe Leseansicht fehlgeschlagen.', ['type' => get_class($e)]);

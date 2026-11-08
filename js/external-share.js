@@ -355,6 +355,8 @@
       allowedLocations=Array.isArray(data.locations)?data.locations:[];
       $('external-access-info').hidden=false;
       $('external-access-info').textContent=stockEditor?'Bestände bearbeiten · Persönlicher Zugang: '+guestRecipient+' · Keine Änderung von Stammdaten oder Gefahrstoffangaben':'Nur Lesezugriff';
+      $('external-access-badge').textContent=stockEditor?'Bestände bearbeiten':'Nur Lesezugriff';
+      $('external-footer-access').textContent=stockEditor?'Bestandsbuchung erlaubt':'Nur Lesezugriff';
       $('external-readonly-explainer').textContent=fullDetails
         ?'Alle Angaben sind lesend. Tippe auf „Produktdetails anzeigen“, um Stammdaten, Mengen je Lagerort, Sicherheitshinweise und Dateien zu öffnen.'
         :'Dies ist eine ältere, eingeschränkte Freigabe. Für sämtliche Bestände, Lagerorte und Fotos muss der Verwalter einen neuen Leselink erstellen.';

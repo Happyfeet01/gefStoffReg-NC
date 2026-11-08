@@ -173,9 +173,9 @@
       select.value=String(preferred.location_id);
     }
     locationLabel.append(select);
-    const actionLabel=el('label','','Buchung');
+    const actionLabel=el('label','','Was möchtest du tun?');
     const action=el('select','external-booking-action');
-    for(const [value,title] of [['add','Zugang'],['remove','Entnahme'],['set','Bestand korrigieren']]){
+    for(const [value,title] of [['add','Einlagern'],['remove','Entnehmen'],['set','Bestand korrigieren']]){
       const option=el('option','',title);option.value=value;action.append(option);
     }
     actionLabel.append(action);
@@ -183,7 +183,7 @@
     const qty=el('input','external-booking-quantity');
     qty.type='number';qty.min='0';qty.step='0.001';qty.required=true;qty.placeholder='z. B. 2';
     quantityLabel.append(qty);
-    const noteLabel=el('label','','Notiz (optional)');
+    const noteLabel=el('label','','Bemerkung (optional)');
     const note=el('input','external-booking-note');note.maxLength=200;
     note.placeholder='z. B. Lieferung oder Entnahmegrund';
     noteLabel.append(note);

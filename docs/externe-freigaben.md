@@ -126,3 +126,19 @@ Verbrauchsmaterial) den Inhalt aller drei Freigabebereiche prüfen, einschließl
 Lagerorte, Gebindeanzahl und Gesamtmengen, Produktfotos, letztem SDB,
 direkten Datei-ID-Requests und Widerruf. Auch eine Kataster-Freigabe darf
 Bestände *ihrer* Gefahrstoffe anzeigen.
+
+
+### Bestandsschutz für bereits verteilte Links
+
+**Nur neu erstellte externe Links** erhalten die vollständige Leseansicht.
+Diese Einstellung wird beim Anlegen als `full_details=true` an der Freigabe
+gespeichert. Bereits zuvor erstellte Freigaben haben dieses Merkmal nicht und
+behalten deshalb den bisherigen eingeschränkten Umfang. Die Oberfläche zeigt
+für solche Links einen Hinweis, statt fehlende Bestandsdaten als Nullbestand
+auszugeben. Produktfotos bleiben über ältere Links nicht abrufbar.
+
+Zum Umstellen eines vorhandenen Testlinks: Alte Freigabe in der App widerrufen,
+neuen Link mit dem gewünschten Bereich und Passwort erstellen und diesen
+an die vorgesehenen Empfänger übermitteln. Das geschieht bewusst **nicht**
+automatisch: Ein App-Update darf eine bereits verteilte Freigabe nicht
+ungefragt um weitere Lagerdaten erweitern.

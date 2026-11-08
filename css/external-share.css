@@ -124,7 +124,7 @@ body#body-public #content.app-gefahrstoffkataster {
 #gsk-external #external-unlock button {width:100%;justify-content:space-between}
 #gsk-external #external-unlock button span {font-size:21px;font-weight:400;line-height:1}
 #gsk-external #external-error {
-  margin:16px 0 0;padding:12px 14px;
+  margin:16px auto 0;max-width:520px;padding:12px 14px;
   border:1px solid #f4c7c7;border-radius:10px;
   background:#fff5f5;color:#a92323;font-size:13px;
 }

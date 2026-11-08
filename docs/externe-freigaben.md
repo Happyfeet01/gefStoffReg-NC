@@ -171,3 +171,19 @@ node tests/external-share-scroll.js
 Für den Produktivbetrieb zusätzlich echte Nextcloud-Testdaten verwenden und Freigabebereich, widerrufene bzw. abgelaufene Links, fehlendes Passwort, direkte POST-Manipulation, gsk_event, Parallelbuchungen und insbesondere zwei gleichzeitige Erstbuchungen bei bisher leerem Produkt-/Lagerort prüfen. Falls gsk_stock noch keine eindeutige Kombination von product_id und location_id garantiert, muss vor einem Merge ein passender Datenbankschutz umgesetzt werden.
 
 Dieser Stand ist ein Draft und darf vor bestandenen Sicherheitstests nicht produktiv eingesetzt werden.
+
+## Einfache Bedienung für Lagerpersonal (ab 0.1.34)
+
+Die externe Mitarbeiteransicht ist bewusst nach dem täglichen Ablauf gestaltet:
+
+1. Produkt über den Namen oder die Suche finden.
+2. Aktuellen Bestand und Lagerort direkt in der kompakten Produktkarte sehen.
+3. **Bestand ändern** öffnen, ohne erst technische Produktdetails auszuklappen.
+4. **Einlagern**, **Entnehmen** oder **Bestand korrigieren** auswählen, Menge und optional eine Bemerkung eintragen, **Änderung speichern**.
+5. Der aktuelle Bestand wird erneut vom Server geladen und die Bestätigung erscheint direkt am betroffenen Produkt. Fehler werden unmittelbar am Buchungsformular angezeigt.
+
+Stammdaten, SDB und weitere Gefahrstoffinformationen stehen separat unter **Weitere Produktinfos**. Dort werden Beschriftungen und Werte als kompakte Paare in einer hellen Karte angezeigt: beispielsweise **PRODUKTNAME** direkt über **Witty-Pool Flocal 5**. Die Lagerortübersicht ist standardmäßig eingeklappt. Lange Warntexte werden bei älteren Links auf einen kurzen Hinweis reduziert.
+
+**Sicherheit unverändert:** Die Gestaltung fügt keine Schreibrechte hinzu. Leselinks bleiben read-only; externe Schreibaktionen sind nur mit dem in PR #18 geprüften persönlichen stock_editor-Zugang möglich.
+
+Tests: `node tests/external-share-usability.js`, `node tests/external-share-layout.js`, `node tests/external-stock-browser.js` (Browser erforderlich). iPhone-Safari-Abnahme weiterhin erforderlich.

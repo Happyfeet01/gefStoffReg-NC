@@ -145,7 +145,12 @@ declare(strict_types=1);
             <label class="full">Bezeichnung<input id="external-share-label" required maxlength="100" placeholder="z. B. Hygieneinstitut – November"></label>
             <label>Freigabebereich<select id="external-share-scope"><option value="kataster">Nur Gefahrstoffkataster</option><option value="lager">Nur Lager</option><option value="both">Lager und Gefahrstoffkataster</option></select></label>
             <label>Gültigkeit<select id="external-share-days"><option value="1">1 Tag</option><option value="7" selected>7 Tage</option><option value="30">30 Tage</option></select></label>
-            <label class="full">Zusätzliches Passwort (empfohlen)<input id="external-share-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Mindestens 12 Zeichen, wenn gesetzt"></label>
+            <label class="full" for="external-share-password">Zusätzliches Passwort (empfohlen)
+              <span class="external-password-control">
+                <input id="external-share-password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Mindestens 12 Zeichen, wenn gesetzt">
+                <button id="external-share-password-toggle" type="button" class="secondary external-password-toggle" aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="external-share-password">Anzeigen</button>
+              </span>
+            </label>
           </div>
           <div class="share-form-actions"><button class="primary" type="submit">Externen Leselink erstellen</button></div>
         </form>

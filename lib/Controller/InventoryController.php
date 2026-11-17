@@ -950,8 +950,7 @@ class InventoryController extends Controller {
             $user = $this->session->getUser();
             if ($user) {
                 $uid = $user->getUID();
-                $old = $this->access->config->getAppValue('gefahrstoffkataster', 'catalog_shares_v1', '{"users":{},"groups":{},"catalogs":{}}');
-                $revision = hash('sha256', $old);
+                $revision = $this->access->catalogRevision();
                 $this->access->changeCatalogAccess('grant', 'user', $uid, $catalogId, 'catalog_manager', $revision);
             }
             

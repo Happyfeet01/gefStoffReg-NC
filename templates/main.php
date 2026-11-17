@@ -72,6 +72,7 @@ declare(strict_types=1);
         <div class="grid">
           <label class="full">Katalognamen *<input id="catalog-name" name="name" type="text" maxlength="255" required placeholder="z. B. Freibad Landrücken"></label>
           <label class="full">Beschreibung<textarea id="catalog-description" name="description" rows="3" maxlength="1000" placeholder="z. B. Hauptkataster für Schwimmbad XYZ"></textarea></label>
+          <p id="catalog-edit-error" class="full warning" role="alert" hidden></p>
         </div>
       </div>
       <footer class="dialog-actions">
@@ -89,6 +90,7 @@ declare(strict_types=1);
       </header>
       <div class="dialog-scroll">
         <p>Möchten Sie den Katalog <strong id="delete-catalog-name"></strong> wirklich löschen?</p>
+        <p id="catalog-delete-error" class="warning" role="alert" hidden></p>
         <p class="warning">⚠️ <strong>Warnung:</strong> Der Katalog kann nur gelöscht werden, wenn er leer ist (keine Produkte, Lagerorte, Bestände).</p>
       </div>
       <footer class="dialog-actions">
@@ -256,3 +258,4 @@ declare(strict_types=1);
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 </div>
+

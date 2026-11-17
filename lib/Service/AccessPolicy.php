@@ -275,6 +275,11 @@ final class AccessPolicy {
         ];
     }
 
+    /** Revision uses the same empty-config default as changeCatalogAccess(). */
+    public function catalogRevision(): string {
+        return hash('sha256', $this->config->getAppValue(self::APP, self::CATALOG_KEY, '{"users":{},"groups":{},"catalogs":{}}'));
+    }
+
     /**
      * Grant or revoke catalog-specific permissions.
      *

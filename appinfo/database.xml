@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/database.xsd">
+	<table name="gsk_catalog">
+		<id>id</id>
+		<column name="name" type="string" length="255" notnull="true"/>
+		<column name="description" type="text" notnull="false"/>
+		<column name="is_default" type="boolean" notnull="true" default="false"/>
+		<column name="created_at" type="datetime" notnull="true" default="CURRENT_TIMESTAMP"/>
+		<column name="updated_at" type="datetime" notnull="true" default="CURRENT_TIMESTAMP"/>
+		<column name="created_by" type="string" length="64" notnull="false"/>
+		<index name="gsk_catalog_is_default_idx">
+			<column>is_default</column>
+		</index>
+	</table>
+	
+	<table name="gsk_product">
+		<id>id</id>
+		<column name="catalog_id" type="integer" notnull="false" default="NULL"/>
+		<column name="details" type="text" notnull="true"/>
+		<column name="created_at" type="datetime" notnull="true"/>
+		<column name="updated_at" type="datetime" notnull="true"/>
+		<index name="gsk_product_catalog_idx">
+			<column>catalog_id</column>
+		</index>
+	</table>
+	
+	<table name="gsk_location">
+		<id>id</id>
+		<column name="catalog_id" type="integer" notnull="false" default="NULL"/>
+		<column name="name" type="string" length="255" notnull="true"/>
+		<index name="gsk_location_catalog_idx">
+			<column>catalog_id</column>
+		</index>
+	</table>
+	
+	<table name="gsk_stock">
+		<id>id</id>
+		<column name="catalog_id" type="integer" notnull="false" default="NULL"/>
+		<column name="product_id" type="integer" notnull="true"/>
+		<column name="location_id" type="integer" notnull="true"/>
+		<column name="milli" type="integer" notnull="true" default="0"/>
+		<index name="gsk_stock_catalog_idx">
+			<column>catalog_id</column>
+		</index>
+		<index name="gsk_stock_product_location_idx">
+			<column>product_id</column>
+			<column>location_id</column>
+		</index>
+	</table>
+	
+	<table name="gsk_file">
+		<id>id</id>
+		<column name="catalog_id" type="integer" notnull="false" default="NULL"/>
+		<column name="product_id" type="integer" notnull="true"/>
+		<column name="kind" type="string" length="20" notnull="true"/>
+		<column name="filename" type="string" length="255" notnull="true"/>
+		<column name="mimetype" type="string" length="100" notnull="false"/>
+		<column name="size" type="integer" notnull="false"/>
+		<column name="sha256" type="string" length="64" notnull="false"/>
+		<column name="storage_path" type="string" length="500" notnull="false"/>
+		<column name="created_at" type="datetime" notnull="true"/>
+		<index name="gsk_file_catalog_idx">
+			<column>catalog_id</column>
+		</index>
+		<index name="gsk_file_product_idx">
+			<column>product_id</column>
+		</index>
+	</table>
+	
+	<table name="gsk_event">
+		<id>id</id>
+		<column name="catalog_id" type="integer" notnull="false" default="NULL"/>
+		<column name="product_id" type="integer" notnull="true"/>
+		<column name="location_id" type="integer" notnull="true"/>
+		<column name="before_milli" type="integer" notnull="true"/>
+		<column name="after_milli" type="integer" notnull="true"/>
+		<column name="delta_milli" type="integer" notnull="true"/>
+		<column name="note" type="string" length="500" notnull="false"/>
+		<column name="created_at" type="datetime" notnull="true"/>
+		<column name="created_by" type="string" length="64" notnull="false"/>
+		<index name="gsk_event_catalog_idx">
+			<column>catalog_id</column>
+		</index>
+		<index name="gsk_event_product_location_idx">
+			<column>product_id</column>
+			<column>location_id</column>
+		</index>
+	</table>
+</database>

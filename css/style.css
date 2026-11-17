@@ -290,3 +290,94 @@
 #gsk-app #external-share-form .gsk-eye-icon {display:block;width:20px;height:20px;pointer-events:none}
 #gsk-app #external-share-form .gsk-eye-slash {display:none}
 #gsk-app #external-share-form [aria-pressed="true"] .gsk-eye-slash {display:block}
+
+/* ==================== KATALOG-VERWALTUNG ==================== */
+
+#gsk-app .catalog-selector {display:flex;align-items:center;gap:8px}
+#gsk-app .catalog-selector label {font-size:14px;color:var(--gsk-muted);white-space:nowrap}
+#gsk-app .catalog-selector select {min-height:44px;padding:10px 14px;border:1px solid var(--gsk-border);border-radius:8px;background:var(--gsk-surface);color:var(--gsk-text);font-size:14px;line-height:22px;max-width:250px}
+#gsk-app .catalog-selector select:hover {border-color:var(--gsk-primary)}
+#gsk-app .catalog-selector select:focus {outline:2px solid var(--gsk-primary);outline-offset:-1px}
+
+#gsk-app #manage-catalogs {min-height:44px;padding:10px 16px}
+
+/* Katalog-Liste Dialog */
+#gsk-app #catalog-list-dialog {width:90vw;max-width:800px;max-height:80vh;border:1px solid var(--gsk-border);border-radius:12px;background:var(--gsk-surface);box-shadow:0 4px 20px rgba(0,0,0,.15)}
+#gsk-app #catalog-list-dialog .dialog-head {display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:24px 28px;border-bottom:1px solid var(--gsk-border)}
+#gsk-app #catalog-list-dialog h2 {margin:0 0 8px;font-size:20px}
+#gsk-app #catalog-list-dialog .hint {color:var(--gsk-muted);font-size:13px}
+#gsk-app #catalog-list-dialog .close {background:none;border:none;font-size:28px;color:var(--gsk-muted);cursor:pointer;padding:4px 8px;line-height:1}
+#gsk-app #catalog-list-dialog .close:hover {color:var(--gsk-text)}
+
+#gsk-app #catalog-list-dialog .dialog-scroll {padding:24px 28px;overflow-y:auto;max-height:calc(80vh - 140px)}
+#gsk-app #catalog-list-dialog .catalog-actions {margin-bottom:20px}
+#gsk-app #catalog-list-dialog #add-catalog {min-height:44px}
+
+#gsk-app .catalog-list {display:flex;flex-direction:column;gap:12px}
+#gsk-app .catalog-list-header {display:grid;grid-template-columns:1fr 120px 100px;gap:16px;padding:12px 16px;border-bottom:1px solid var(--gsk-border);font-size:12px;color:var(--gsk-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+#gsk-app .catalog-list-row {display:grid;grid-template-columns:1fr 120px 100px;gap:16px;padding:14px 16px;align-items:center;border:1px solid var(--gsk-border);border-radius:8px;background:var(--gsk-surface);transition:background-color .15s}
+#gsk-app .catalog-list-row:hover {background:var(--gsk-soft)}
+#gsk-app .catalog-list-row .catalog-info {display:flex;flex-direction:column;gap:4px}
+#gsk-app .catalog-list-row .catalog-name {font-weight:600;color:var(--gsk-text);font-size:15px}
+#gsk-app .catalog-list-row .catalog-description {font-size:13px;color:var(--gsk-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#gsk-app .catalog-list-row .catalog-badge {display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+#gsk-app .catalog-list-row .catalog-badge.default {background:var(--gsk-soft);color:var(--gsk-primary)}
+#gsk-app .catalog-list-row .catalog-actions {display:flex;gap:8px;justify-content:flex-end}
+#gsk-app .catalog-list-row .icon-btn {width:32px;height:32px;border:none;background:var(--gsk-soft);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--gsk-muted)}
+#gsk-app .catalog-list-row .icon-btn:hover {background:var(--gsk-border);color:var(--gsk-text)}
+#gsk-app .catalog-list-row .icon-btn.danger:hover {background:#ffebee;color:#c62828}
+#gsk-app .catalog-list-row .catalog-count {font-size:12px;color:var(--gsk-muted);text-align:right}
+
+/* Katalog bearbeiten Dialog */
+#gsk-app #catalog-edit-dialog {width:90vw;max-width:600px;max-height:80vh;border:1px solid var(--gsk-border);border-radius:12px;background:var(--gsk-surface);box-shadow:0 4px 20px rgba(0,0,0,.15)}
+#gsk-app #catalog-edit-dialog .dialog-head {display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:24px 28px;border-bottom:1px solid var(--gsk-border)}
+#gsk-app #catalog-edit-dialog h2 {margin:0 0 8px;font-size:20px}
+#gsk-app #catalog-edit-dialog .close {background:none;border:none;font-size:28px;color:var(--gsk-muted);cursor:pointer;padding:4px 8px;line-height:1}
+#gsk-app #catalog-edit-dialog .close:hover {color:var(--gsk-text)}
+
+#gsk-app #catalog-edit-dialog .dialog-scroll {padding:24px 28px;overflow-y:auto;max-height:calc(80vh - 200px)}
+#gsk-app #catalog-edit-dialog .grid {display:grid;gap:20px}
+#gsk-app #catalog-edit-dialog label {display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:500;color:var(--gsk-text)}
+#gsk-app #catalog-edit-dialog label.full {grid-column:1/-1}
+#gsk-app #catalog-edit-dialog input,#gsk-app #catalog-edit-dialog textarea {min-height:44px;padding:10px 14px;border:1px solid var(--gsk-border);border-radius:8px;background:var(--gsk-surface);color:var(--gsk-text);font-size:14px;line-height:22px}
+#gsk-app #catalog-edit-dialog input:hover,#gsk-app #catalog-edit-dialog textarea:hover {border-color:var(--gsk-primary)}
+#gsk-app #catalog-edit-dialog input:focus,#gsk-app #catalog-edit-dialog textarea:focus {outline:2px solid var(--gsk-primary);outline-offset:-1px}
+#gsk-app #catalog-edit-dialog textarea {resize:vertical;min-height:80px}
+
+#gsk-app #catalog-edit-dialog .dialog-actions {display:flex;justify-content:flex-end;gap:12px;padding:20px 28px;border-top:1px solid var(--gsk-border)}
+
+/* Katalog löschen Dialog */
+#gsk-app #catalog-delete-dialog {width:90vw;max-width:500px;max-height:80vh;border:1px solid var(--gsk-border);border-radius:12px;background:var(--gsk-surface);box-shadow:0 4px 20px rgba(0,0,0,.15)}
+#gsk-app #catalog-delete-dialog .dialog-head {display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:24px 28px;border-bottom:1px solid var(--gsk-border)}
+#gsk-app #catalog-delete-dialog h2 {margin:0 0 8px;font-size:20px}
+#gsk-app #catalog-delete-dialog .close {background:none;border:none;font-size:28px;color:var(--gsk-muted);cursor:pointer;padding:4px 8px;line-height:1}
+#gsk-app #catalog-delete-dialog .close:hover {color:var(--gsk-text)}
+
+#gsk-app #catalog-delete-dialog .dialog-scroll {padding:24px 28px;overflow-y:auto}
+#gsk-app #catalog-delete-dialog p {margin:0 0 16px;color:var(--gsk-text);line-height:1.6}
+#gsk-app #catalog-delete-dialog .warning {color:#c62828;background:#ffebee;padding:12px 16px;border-radius:8px;margin:16px 0}
+#gsk-app #catalog-delete-dialog .warning strong {color:#c62828}
+
+#gsk-app #catalog-delete-dialog .dialog-actions {display:flex;justify-content:flex-end;gap:12px;padding:20px 28px;border-top:1px solid var(--gsk-border)}
+#gsk-app #catalog-delete-dialog #confirm-delete-catalog {background:#c62828;color:#fff;border-color:#c62828}
+#gsk-app #catalog-delete-dialog #confirm-delete-catalog:hover {background:#b71c1c}
+
+/* Dialog Stile (allgemein) */
+#gsk-app dialog::backdrop {background:rgba(0,0,0,.5)}
+#gsk-app dialog {border:none;background:transparent;padding:0;margin:auto;color:var(--gsk-text)}
+#gsk-app dialog:not([open]) {display:none}
+
+/* Toast Notification */
+#gsk-app #toast {position:fixed;bottom:24px;right:24px;padding:16px 24px;border-radius:8px;background:var(--gsk-surface);box-shadow:0 4px 12px rgba(0,0,0,.15);font-size:14px;font-weight:500;z-index:10000;transition:opacity .3s,transform .3s;pointer-events:none}
+#gsk-app #toast.show {opacity:1;transform:translateY(0)}
+#gsk-app #toast:not(.show) {opacity:0;transform:translateY(20px);pointer-events:none}
+#gsk-app #toast.error {background:#ffebee;color:#c62828;border:1px solid #ffcdd2}
+
+/* Loading State */
+#gsk-app .loading {opacity:.6;pointer-events:none}
+#gsk-app .loading::after {content:'';position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid var(--gsk-border);border-top-color:var(--gsk-primary);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin {to {transform:rotate(360deg)}}
+
+/* Danger Button */
+#gsk-app .danger {background:#c62828;color:#fff;border-color:#c62828}
+#gsk-app .danger:hover {background:#b71c1c}

@@ -148,6 +148,16 @@ namespace {
     $lid=$moved->data['locations'][0]['id'];$booking=['product_id'=>1,'location_id'=>$lid,'action'=>'add','packs'=>1,'expected_milli'=>2500];
     foreach([array_replace($booking,['product_id'=>3,'location_id'=>20]),array_replace($booking,['location_id'=>20])] as $bad){try{$stock->book($bad,'both','external:'.str_repeat('a',16),1);throw new \LogicException('Cross-catalog booking accepted');}catch(\DomainException $e){}}
     verify($stock->book($booking,'both','external:'.str_repeat('a',16),1)['after']===3.5,'Own catalog booking failed');
+    $publicRequest->params=['catalog_id'=>'1','payload'=>json_encode(['label'=>'Zweiter Hallenbad-Link','scope'=>'both','days'=>7,'password'=>'','revision'=>$shares->listing(1)['revision'],'catalog_id'=>2])];
+    $created=$public->createLink();verify($created->status===201 && count($created->data['links']['links'])===2,'Catalog-specific link creation failed');
+    verify(count($shares->listing(2)['links'])===0,'Client payload overrode selected catalog when creating a link');
+    $publicRequest->params=['catalog_id'=>'1','payload'=>json_encode(['id'=>$old['id'],'revision'=>$shares->listing(1)['revision']])];
+    verify($public->revokeLink()->status===400 && $shares->active($old['token'])!==null,'Revocation bypassed selected catalog');
+    $editor=$shares->create('Hallenbad Mitarbeiter','both',7,'sicheres-Passwort-123','lars',$shares->listing(1)['revision'],'stock_editor','Testperson',1);
+    $publicRequest->params=['catalog_id'=>'2','password'=>'sicheres-Passwort-123','booking'=>json_encode(array_replace($booking,['product_id'=>3,'location_id'=>20,'expected_milli'=>5000]))];
+    verify($public->stock($editor['token'])->status===403,'Public write used request catalog instead of token catalog');
+    $publicRequest->params['booking']=json_encode(array_replace($booking,['expected_milli'=>3500]));
+    verify($public->stock($editor['token'])->status===200,'Public own-catalog write failed');
     $request->params=['catalog_id'=>'1'];verify($inventory->export('csv')->status===200 && !str_contains($inventory->export('csv')->data,'Fremdes Produkt'),'CSV leaked another catalog');
     verify($db->locks>0,'Assignment and stock writers did not request product locks');
     echo "Catalog integration fixture passed: actual controllers, empty/default catalog, create, scoped updates/files/exports, assignment/rollback, stock/history/documents, token-bound reads/files/bookings and legacy links\n";

@@ -382,3 +382,12 @@
 #gsk-app .assignment-product {display:flex;align-items:center;gap:12px;padding:8px 0}
 #gsk-app #assignment-products {margin-top:16px}
 #gsk-app .assignment-product input {width:20px;min-height:20px;flex:0 0 20px}
+#gsk-app .catalog-list-header,#gsk-app .catalog-list-row {grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 80px minmax(180px,auto)}
+#gsk-app .catalog-list-row>span {min-width:0;overflow-wrap:anywhere}
+#gsk-app .catalog-list-row .catalog-actions {flex-wrap:wrap}
+@media(max-width:720px) {
+  #gsk-app .catalog-list-header {display:none}
+  #gsk-app .catalog-list-row {grid-template-columns:minmax(0,1fr);gap:8px}
+  #gsk-app .catalog-list-row .catalog-actions {justify-content:flex-start}
+  #gsk-app .catalog-list-row>span:nth-child(3)::before {content:'Standard: '}
+}

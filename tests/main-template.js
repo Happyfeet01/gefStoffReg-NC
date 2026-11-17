@@ -51,7 +51,8 @@ const {chromium} = require('playwright');
           return route.fulfill({contentType: 'application/json', body: JSON.stringify({catalogs: [{id: 'legacy', legacy: true, name: 'Ohne Katalog', permissions: {manage: true}}, {id: 1, name: 'Hallenbad Schlüchtern', is_default: true, permissions: {manage: true}}]})});
         }
         if (pathname === base + '/api/catalog-assignment') {
-          const input = JSON.parse(new URLSearchParams(route.request().postData()).get('payload'));
+          const form = await new Request('https://fixture.test/assignment', {method: 'POST', headers: {'content-type': route.request().headers()['content-type']}, body: route.request().postData()}).formData();
+          const input = JSON.parse(form.get('payload'));
           assert.deepEqual(input, {product_ids: [1], target_catalog_id: 1});
           owned = '1';
           return route.fulfill({contentType: 'application/json', body: JSON.stringify({assigned: 1})});

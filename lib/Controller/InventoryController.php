@@ -267,6 +267,7 @@ class InventoryController extends Controller {
         Util::addStyle('gefahrstoffkataster', 'style');
         // Keep an already deployed decoder optional; never request a missing script.
         if (is_file(__DIR__ . '/../../js/scanner.js')) Util::addScript('gefahrstoffkataster', 'scanner');
+        Util::addScript('gefahrstoffkataster', 'catalog');
         Util::addScript('gefahrstoffkataster', 'app');
         return new TemplateResponse('gefahrstoffkataster', 'main');
     }

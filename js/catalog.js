@@ -9,8 +9,11 @@ const catalogState = {
   catalogs: [],
   currentCatalogId: null,
   loading: false,
-  editCatalogId: null
+  editCatalogId: null,
+  saving: false,
+  deleting: false
 };
+let catalogUIInitialized = false;
 
 const catalog$ = id => document.getElementById(id);
 const catalogUrl = path => OC.generateUrl('/apps/gefahrstoffkataster' + path);
@@ -55,7 +58,9 @@ async function catalogGet(path) {
  */
 async function catalogRequest(path, body = {}, method = 'POST') {
   const data = new FormData();
-  data.set('payload', JSON.stringify(body));
+  for (const [key, value] of Object.entries(body)) {
+    data.set(key, String(value));
+  }
   
   const response = await fetch(catalogUrl(path), {
     method,
@@ -86,7 +91,11 @@ async function loadCatalogs() {
   catalogState.loading = true;
   try {
     const data = await catalogGet('/api/catalogs');
-    catalogState.catalogs = data.catalogs || [];
+    catalogState.catalogs = (data.catalogs || []).map(catalog => ({
+      ...catalog,
+      id: Number(catalog.id),
+      is_default: [true, 1, '1'].includes(catalog.is_default)
+    }));
     
     // Standard-Katalog setzen
     if (catalogState.catalogs.length > 0 && !catalogState.currentCatalogId) {
@@ -192,6 +201,13 @@ function updateCatalogSelect() {
   
   select.replaceChildren();
   
+  if (catalogState.catalogs.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Keine Kataloge geladen';
+    select.appendChild(option);
+  }
+
   // Option für jeden Katalog hinzufügen
   catalogState.catalogs.forEach(catalog => {
     const option = document.createElement('option');
@@ -203,10 +219,6 @@ function updateCatalogSelect() {
     select.appendChild(option);
   });
   
-  // Event-Handler hinzufügen
-  select.addEventListener('change', (e) => {
-    switchCatalog(Number(e.target.value));
-  });
 }
 
 // ==================== UI FUNKTIONEN ====================
@@ -311,6 +323,7 @@ function renderCatalogList() {
  */
 function openCatalogEdit(catalogId = null) {
   catalogState.editCatalogId = catalogId;
+  catalog$('catalog-edit-error').hidden = true;
   
   const dialog = catalog$('catalog-edit-dialog');
   const title = catalog$('catalog-edit-title');
@@ -343,6 +356,9 @@ function openCatalogEdit(catalogId = null) {
  * Speichert den Katalog (neu oder bearbeiten)
  */
 async function saveCatalog() {
+  if (catalogState.saving) return;
+  const error = catalog$('catalog-edit-error');
+  error.hidden = true;
   const nameInput = catalog$('catalog-name');
   const descInput = catalog$('catalog-description');
   const name = nameInput.value.trim();
@@ -353,6 +369,8 @@ async function saveCatalog() {
     return;
   }
   
+  catalogState.saving = true;
+  catalog$('save-catalog').disabled = true;
   try {
     if (catalogState.editCatalogId) {
       // Bearbeiten
@@ -370,7 +388,12 @@ async function saveCatalog() {
     renderCatalogList();
     
   } catch (err) {
+    error.textContent = err.message;
+    error.hidden = false;
     catalogNotice(err.message, true);
+  } finally {
+    catalogState.saving = false;
+    catalog$('save-catalog').disabled = false;
   }
 }
 
@@ -379,6 +402,7 @@ async function saveCatalog() {
  */
 function openCatalogDelete(catalogId, catalogName) {
   catalogState.editCatalogId = catalogId;
+  catalog$('catalog-delete-error').hidden = true;
   catalog$('delete-catalog-name').textContent = catalogName;
   catalog$('catalog-delete-dialog').showModal();
 }
@@ -387,7 +411,11 @@ function openCatalogDelete(catalogId, catalogName) {
  * Bestätigt das Löschen eines Katalogs
  */
 async function confirmDeleteCatalog() {
-  if (!catalogState.editCatalogId) return;
+  if (!catalogState.editCatalogId || catalogState.deleting) return;
+  const error = catalog$('catalog-delete-error');
+  error.hidden = true;
+  catalogState.deleting = true;
+  catalog$('confirm-delete-catalog').disabled = true;
   
   try {
     await deleteCatalog(catalogState.editCatalogId);
@@ -398,7 +426,12 @@ async function confirmDeleteCatalog() {
     renderCatalogList();
     
   } catch (err) {
+    error.textContent = err.message;
+    error.hidden = false;
     catalogNotice(err.message, true);
+  } finally {
+    catalogState.deleting = false;
+    catalog$('confirm-delete-catalog').disabled = false;
   }
 }
 
@@ -406,8 +439,12 @@ async function confirmDeleteCatalog() {
 
 // Initialisierung
 function initCatalogUI() {
+  if (catalogUIInitialized) return;
+  catalogUIInitialized = true;
   // Katalog-Auswahl initialisieren
   updateCatalogSelect();
+  catalog$('catalog-select')?.addEventListener('change', e => switchCatalog(Number(e.target.value)));
+  catalog$('add-catalog')?.addEventListener('click', () => openCatalogEdit());
   
   // Button: Kataloge verwalten
   const manageBtn = catalog$('manage-catalogs');
@@ -432,11 +469,6 @@ function initCatalogUI() {
       catalogState.editCatalogId = null;
     });
     
-    const saveBtn = catalog$('save-catalog');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', saveCatalog);
-    }
-    
     // Formular-Submit
     const editForm = catalog$('catalog-edit-form');
     if (editForm) {
@@ -454,11 +486,6 @@ function initCatalogUI() {
     deleteDialog.addEventListener('close', () => {
       catalogState.editCatalogId = null;
     });
-    
-    const confirmBtn = catalog$('confirm-delete-catalog');
-    if (confirmBtn) {
-      confirmBtn.addEventListener('click', confirmDeleteCatalog);
-    }
     
     const deleteForm = catalog$('catalog-delete-form');
     if (deleteForm) {
@@ -496,3 +523,4 @@ window.CatalogManager = {
   getCurrentCatalogId: () => catalogState.currentCatalogId,
   getCatalogs: () => catalogState.catalogs
 };
+

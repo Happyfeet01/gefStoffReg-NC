@@ -57,7 +57,7 @@ const {chromium} = require('playwright');
           return route.fulfill({contentType: 'application/json', body: JSON.stringify({assigned: 1})});
         }
         if (pathname === base + '/') {
-          return route.fulfill({contentType: 'text/html', headers: {'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'"}, body: `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/style.css"><script defer src="/assets/core.js"></script>${scripts.map(name => `<script defer src="/assets/${name}.js"></script>`).join('')}</head><body><div id="content">${html}</div></body></html>`});
+          return route.fulfill({contentType: 'text/html; charset=utf-8', headers: {'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'"}, body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/style.css"><script defer src="/assets/core.js"></script>${scripts.map(name => `<script defer src="/assets/${name}.js"></script>`).join('')}</head><body><div id="content">${html}</div></body></html>`});
         }
         return route.fulfill({status: 404, body: 'Unexpected fixture request'});
       });

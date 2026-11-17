@@ -1,8 +1,6 @@
 name: Catalog regression checks
 on:
   pull_request:
-  push:
-    branches: ['fix/catalog-switch-assignment-shares']
 permissions:
   contents: read
 jobs:
@@ -34,6 +32,6 @@ jobs:
           node tests/main-template.js
       - name: Browser fixture at mobile and desktop sizes
         run: |
-          npm install --no-save --ignore-scripts playwright
+          npm install --no-save --ignore-scripts playwright@1.65.1
           npx playwright install --with-deps chromium
           node tests/main-template.js --browser

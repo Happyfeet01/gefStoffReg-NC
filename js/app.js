@@ -5,15 +5,19 @@ const urlFor = (path, key) => OC.generateUrl('/apps/gefahrstoffkataster'+path)+(
 const url = path => urlFor(path, catalogKey());
 let loadSequence = 0;
 let savingProduct = false;
+let pendingWrites = 0;
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
 let toastTimer;
 function notice(message,error=false){const el=$('toast');el.textContent=message;el.className=(error?'error ':'')+'show';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',4800)}
 async function request(path,body,method='POST'){
+  pendingWrites++;
+  try{
   const data=new FormData();data.set('payload',JSON.stringify(body));
   const response=await fetch(url(path),{method,headers:{requesttoken:OC.requestToken},body:data});
   let result;try{result=await response.json()}catch{throw Error(`Serverantwort konnte nicht gelesen werden (HTTP ${response.status}).`)}
   if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);
   return result;
+  }finally{pendingWrites--;}
 }
 async function load(){
   const sequence = ++loadSequence, selected = catalogKey();
@@ -769,13 +773,14 @@ $('assignment-form').addEventListener('submit',async event=>{
   finally{submit.disabled=false;}
 });
 window.addEventListener('gsk-before-catalog-change', event => {
-  if(savingProduct || ($('stock-dialog').open && $('save-stock').disabled) || ($('sharing-dialog').open && $('external-share-submit').disabled)) {
+  if(savingProduct || pendingWrites>0) {
     event.preventDefault(); notice('Bitte den laufenden Speichervorgang abwarten.', true);
   }
 });
 window.addEventListener('gsk-catalog-change', () => {
   for(const id of ['product-dialog','stock-dialog','sharing-dialog','scan-dialog'])if($(id).open)close(id);
   state.current=null;state.stockProduct=null;state.products=[];state.locations=[];state.permissions={};
+  $('external-share-created').hidden=true;$('external-share-created-url').value='';
   for(const id of ['search','location-filter','material-filter','category-filter'])$(id).value='';
   render();
   for(const id of ['count-products','count-hazards','count-missing','count-locations'])$(id).textContent='…';

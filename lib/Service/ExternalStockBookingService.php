@@ -56,7 +56,7 @@ final class ExternalStockBookingService {
         $qb=$this->db->getQueryBuilder();
         $qb->insert($table);
         foreach($row as $name=>$value){
-            $qb->setValue($name,$qb->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR));
+            $qb->setValue($name,$qb->createNamedParameter($value,$value===null?IQueryBuilder::PARAM_NULL:(is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR)));
         }
         $qb->executeStatement();
     }
@@ -66,17 +66,20 @@ final class ExternalStockBookingService {
      * A request must include expected_milli from its most recent read, so a
      * concurrent booking cannot silently overwrite another person's change.
      */
-    public function book(array $input, string $scope, string $actor): array {
+    public function book(array $input, string $scope, string $actor, ?int $catalogId = null): array {
         $p=self::normalize($input);
         if (!preg_match('/^external:[a-f0-9]{16}$/D',$actor)) {
             throw new \InvalidArgumentException('Ungültige Zugangskennung.');
         }
         try {
             $this->db->beginTransaction();
-            $productRow=$this->one('gsk_product',$p['product_id']);
-            if ($productRow===null || !$this->one('gsk_location',$p['location_id'])) {
+            $lock=$this->db->getQueryBuilder();
+            $productRow=$lock->select('*')->from('gsk_product')->where($lock->expr()->eq('id',$lock->createNamedParameter($p['product_id'],IQueryBuilder::PARAM_INT)))->forUpdate()->executeQuery()->fetchAssociative();
+            $location=$this->one('gsk_location',$p['location_id']);
+            if (!$productRow || !$location) {
                 throw new \InvalidArgumentException('Produkt oder Lagerort unbekannt.');
             }
+            if (!CatalogScope::matches($productRow,$catalogId) || !CatalogScope::matches($location,$catalogId)) throw new \DomainException('Produkt oder Lagerort gehört zu einem anderen Katalog.');
             $details=json_decode((string)$productRow['details'],true);
             if (!is_array($details) || !self::allowsProduct($details,$scope)) {
                 throw new \DomainException('Produkt gehört nicht zur Freigabe.');
@@ -110,13 +113,13 @@ final class ExternalStockBookingService {
                 // Same insert semantics as the internal inventory controller.
                 // Actual DB uniqueness/locking must be checked during integration.
                 $this->insert('gsk_stock',[
-                    'product_id'=>$p['product_id'],'location_id'=>$p['location_id'],'milli'=>$after,
+                    'product_id'=>$p['product_id'],'location_id'=>$p['location_id'],'milli'=>$after, 'catalog_id'=>$catalogId,
                 ]);
             }
             $this->insert('gsk_event',[
                 'product_id'=>$p['product_id'], 'location_id'=>$p['location_id'],
                 'before_milli'=>$before,'after_milli'=>$after,'action'=>$p['action'],
-                'note'=>$p['note'],'actor'=>$actor,'created_at'=>gmdate('c'),
+                'note'=>$p['note'],'actor'=>$actor,'created_at'=>gmdate('c'), 'catalog_id'=>$catalogId,
             ]);
             $this->db->commit();
             return ['before'=>$before/1000,'after'=>$after/1000,'actor'=>$actor];
@@ -126,3 +129,4 @@ final class ExternalStockBookingService {
         }
     }
 }
+

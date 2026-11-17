@@ -6,6 +6,8 @@ namespace OCA\Gefahrstoffkataster\Controller;
 use OCA\Gefahrstoffkataster\Service\ApiKeyService;
 use OCA\Gefahrstoffkataster\Service\AccessPolicy;
 use OCA\Gefahrstoffkataster\Service\CatalogService;
+use OCA\Gefahrstoffkataster\Service\CatalogScope;
+use OCA\Gefahrstoffkataster\Service\CatalogAssignmentService;
 use OCA\Gefahrstoffkataster\Service\ResearchResponse;
 use OCA\Gefahrstoffkataster\Service\SdsAnalysis;
 use OCA\Gefahrstoffkataster\Service\SdsTextExtractor;
@@ -91,8 +93,26 @@ class InventoryController extends Controller {
         }
     }
 
+    private function catalogId(): ?int {
+        return CatalogScope::parse($this->request->getParam('catalog_id'));
+    }
+
+    private function capabilities(): array {
+        $global = $this->access->capabilities();
+        $id = $this->catalogId();
+        if ($id === null) return $global;
+        $local = $this->catalogService->getCatalogById($id) ? $this->access->catalogCapabilities($id) : [];
+        foreach (['read', 'stock', 'editBasic', 'editSafety', 'manage'] as $key) $global[$key] = !empty($global[$key]) && !empty($local[$key]);
+        return $global;
+    }
+
+    private function scopePermitted(string $capability): bool {
+        try { return !empty($this->capabilities()[$capability]); }
+        catch (\InvalidArgumentException $e) { return false; }
+    }
+
     private function permitted(): bool {
-        return $this->access->canRead();
+        return $this->scopePermitted('read');
     }
 
     private function denied(): DataResponse {
@@ -103,12 +123,21 @@ class InventoryController extends Controller {
         return new DataResponse(['error' => $message], $status);
     }
 
-    private function rows(string $table): array {
+    private function rows(string $table, bool $scoped = true): array {
         $qb = $this->db->getQueryBuilder();
-        return $qb->select('*')->from($table)->executeQuery()->fetchAllAssociative();
+        $rows = $qb->select('*')->from($table)->executeQuery()->fetchAllAssociative();
+        if (!$scoped) return $rows;
+        if (in_array($table, ['gsk_product', 'gsk_location'], true)) return CatalogScope::filter($rows, $this->catalogId());
+        if (in_array($table, ['gsk_file', 'gsk_stock', 'gsk_event'], true)) {
+            $pids = array_fill_keys(array_column($this->rows('gsk_product'), 'id'), true);
+            $lids = array_fill_keys(array_column($this->rows('gsk_location'), 'id'), true);
+            return array_values(array_filter($rows, static fn(array $r): bool => isset($pids[$r['product_id']]) && ($table === 'gsk_file' || isset($lids[$r['location_id']]))));
+        }
+        return $rows;
     }
 
     private function insertRow(string $table, array $data): int {
+        if (in_array($table, ['gsk_product','gsk_location','gsk_stock','gsk_event','gsk_file'], true) && $this->catalogId() !== null) $data['catalog_id'] = $this->catalogId();
         $qb = $this->db->getQueryBuilder();
         $qb->insert($table);
         foreach ($data as $column => $value) {
@@ -123,7 +152,10 @@ class InventoryController extends Controller {
         $row = $qb->select('*')->from($table)
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
             ->executeQuery()->fetchAssociative();
-        return $row ?: null;
+        if (!$row) return null;
+        if (in_array($table, ['gsk_product','gsk_location'], true) && !CatalogScope::matches($row, $this->catalogId())) return null;
+        if ($table === 'gsk_file' && !$this->one('gsk_product', (int)$row['product_id'])) return null;
+        return $row;
     }
 
     private function payload(): array {
@@ -282,6 +314,7 @@ class InventoryController extends Controller {
             foreach ($this->rows('gsk_product') as $row) {
                 $data = json_decode($row['details'], true);
                 $data['id'] = (int)$row['id'];
+                $data['catalog_id'] = isset($row['catalog_id']) ? (int)$row['catalog_id'] : null;
                 $data['stock'] = [];
                 $data['photos'] = [];
                 $data['sds_id'] = null;
@@ -298,7 +331,7 @@ class InventoryController extends Controller {
                 if ($row['kind'] === 'sds') $products[$row['product_id']]['sds_id'] = max($products[$row['product_id']]['sds_id'] ?? 0, (int)$row['id']);
             }
             $locations = array_map(static fn(array $row): array => ['id' => (int)$row['id'], 'name' => $row['name']], $this->rows('gsk_location'));
-            return new DataResponse(['products' => array_values($products), 'locations' => $locations, 'permissions' => $this->access->capabilities()]);
+            return new DataResponse(['products' => array_values($products), 'locations' => $locations, 'permissions' => $this->capabilities(), 'catalog_id' => $this->catalogId(), 'can_assign' => $this->access->canManage()]);
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Produktdaten konnten nicht geladen werden.', ['exception' => $e]);
             return $this->fail('Daten konnten nicht geladen werden.', 500);
@@ -571,7 +604,7 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function addLocation(): DataResponse {
-        if (!$this->access->canManage()) return $this->denied();
+        if (!$this->scopePermitted('manage')) return $this->denied();
         try {
             $name = $this->payload()['name'] ?? null;
             if (!is_string($name) || mb_strlen(trim($name)) < 1 || mb_strlen(trim($name)) > 80) throw new \InvalidArgumentException('Bitte einen Lagerort mit 1 bis 80 Zeichen eingeben.');
@@ -598,10 +631,10 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function saveProduct(): DataResponse {
-        if (!$this->access->canEditBasic()) return $this->denied();
+        if (!$this->scopePermitted('editBasic')) return $this->denied();
         try {
             $data = $this->validateProduct($this->payload());
-            if (!$this->access->canEditSafety() && !self::stockEditorMayCreate($data)) return $this->denied();
+            if (!$this->scopePermitted('editSafety') && !self::stockEditorMayCreate($data)) return $this->denied();
             $time = gmdate('c');
             $id = $this->insertRow('gsk_product', ['details' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'created_at' => $time, 'updated_at' => $time]);
             $this->logger->info('Gefahrstoffkataster: Produkt erstellt.', ['product_id' => $id, 'actor' => $this->session->getUser()->getUID()]);
@@ -613,23 +646,25 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function updateProduct(int $id): DataResponse {
-        if (!$this->access->canEditBasic()) return $this->denied();
+        if (!$this->scopePermitted('editBasic')) return $this->denied();
         $record = $this->one('gsk_product', $id);
         if (!$record) return $this->fail('Produkt nicht gefunden.', 404);
         try {
             $data = $this->validateProduct($this->payload());
-            if (!$this->access->canEditSafety()) {
+            if (!$this->scopePermitted('editSafety')) {
                 $original = json_decode($record['details'], true);
                 if (!is_array($original)) return $this->fail('Gespeicherte Produktdaten sind ungültig.', 409);
                 $data = self::stockEditorUpdate($original, $data);
                 if ($data === null) return $this->denied();
             }
             $qb = $this->db->getQueryBuilder();
-            $qb->update('gsk_product')
+            $changed = $qb->update('gsk_product')
                 ->set('details', $qb->createNamedParameter(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)))
                 ->set('updated_at', $qb->createNamedParameter(gmdate('c')))
                 ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+                ->andWhere($this->catalogId() === null ? $qb->expr()->orX($qb->expr()->isNull('catalog_id'), $qb->expr()->eq('catalog_id', $qb->createNamedParameter(0))) : $qb->expr()->eq('catalog_id', $qb->createNamedParameter($this->catalogId(), IQueryBuilder::PARAM_INT)))
                 ->executeStatement();
+            if (!$this->one('gsk_product', $id)) return $this->fail('Produkt wurde verschoben. Bitte neu laden.', 409);
             $this->logger->info('Gefahrstoffkataster: Produkt aktualisiert.', ['product_id' => $id, 'actor' => $this->session->getUser()->getUID()]);
             return new DataResponse(['id' => $id]);
         } catch (\InvalidArgumentException|\JsonException $e) {
@@ -639,7 +674,7 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function adjustStock(): DataResponse {
-        if (!$this->access->canChangeStock()) return $this->denied();
+        if (!$this->scopePermitted('stock')) return $this->denied();
         try {
             $input = $this->payload();
             $pid = filter_var($input['product_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -653,6 +688,10 @@ class InventoryController extends Controller {
             $amount = (int)round((float)$packs * 1000);
             if ($action !== 'set' && $amount === 0) throw new \InvalidArgumentException('Mindestmenge: 0,001 Gebinde.');
             $this->db->beginTransaction();
+            $lock = $this->db->getQueryBuilder();
+            $product = $lock->select('*')->from('gsk_product')->where($lock->expr()->eq('id', $lock->createNamedParameter($pid, IQueryBuilder::PARAM_INT)))
+                ->forUpdate()->executeQuery()->fetchAssociative();
+            if (!$product || !CatalogScope::matches($product, $this->catalogId())) throw new \InvalidArgumentException('Produkt wurde einem anderen Katalog zugeordnet. Bitte neu laden.');
             $qb = $this->db->getQueryBuilder();
             $record = $qb->select('*')->from('gsk_stock')
                 ->where($qb->expr()->eq('product_id', $qb->createNamedParameter($pid)))
@@ -684,7 +723,7 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function analyzeSds(): DataResponse {
-        if (!$this->access->canEditSafety()) return $this->denied();
+        if (!$this->scopePermitted('editSafety')) return $this->denied();
         try {
             $draftToken = null;
             $sourceUrl = trim((string)$this->request->getParam('source_url', ''));
@@ -749,12 +788,12 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function upload(int $id): DataResponse {
-        if (!$this->access->canEditBasic()) return $this->denied();
+        if (!$this->scopePermitted('editBasic')) return $this->denied();
         $record = $this->one('gsk_product', $id);
         if (!$record) return $this->fail('Produkt nicht gefunden.', 404);
         $upload = $this->request->getUploadedFile('file');
         $kind = $this->request->getParam('kind');
-        if (!$this->access->canEditSafety()) {
+        if (!$this->scopePermitted('editSafety')) {
             $product = json_decode($record['details'], true);
             if ($kind !== 'photo' || !is_array($product) || !empty($product['hazardous'])
                 || !in_array($product['material_kind'] ?? 'unclassified', ['consumable', 'other'], true)) return $this->denied();
@@ -844,7 +883,7 @@ class InventoryController extends Controller {
             if ($hazardOnly && empty($p['hazardous'])) continue;
             foreach (($stock[$entry['id']] ?? [null]) as $s) {
                 $count = $s ? (int)$s['milli'] / 1000 : 0;
-                $fileUrl = isset($files[$entry['id']]) ? $this->urls->linkToRouteAbsolute('gefahrstoffkataster.inventory.download', ['id' => $files[$entry['id']]]) : '';
+                $fileUrl = isset($files[$entry['id']]) ? $this->urls->linkToRouteAbsolute('gefahrstoffkataster.inventory.download', ['id' => $files[$entry['id']], 'catalog_id' => $this->catalogId() ?? 'legacy']) : '';
                 $result[] = [$p['name'], $p['manufacturer'], $p['article'], $p['ean'], $p['ufi'],
                     $p['use_area'], $p['category'], ['chemical'=>'Chemikalien','consumable'=>'Verbrauchsmaterial','other'=>'Sonstiges','unclassified'=>'Nicht zugeordnet'][$p['material_kind'] ?? 'unclassified'] ?? 'Nicht zugeordnet', $s ? ($locations[$s['location_id']] ?? '') : '',
                     $count, $p['pack_size'], $p['unit'], round($count * $p['pack_size'], 6),
@@ -917,10 +956,15 @@ class InventoryController extends Controller {
 
     #[NoAdminRequired]
     public function listCatalogs(): DataResponse {
-        if (!$this->permitted()) return $this->denied();
-        
+        if (!$this->access->canRead()) return $this->denied();
         try {
-            $catalogs = $this->catalogService->getAllCatalogs();
+            $catalogs = [['id' => 'legacy', 'name' => 'Ohne Katalog', 'description' => 'Bisheriger, noch nicht zugeordneter Bestand', 'is_default' => false, 'legacy' => true, 'permissions' => $this->access->capabilities()]];
+            foreach ($this->catalogService->getAllCatalogs() as $catalog) {
+                $id = (int)$catalog['id'];
+                if (!$this->access->canReadCatalog($id)) continue;
+                $catalog['permissions'] = $this->access->catalogCapabilities($id);
+                $catalogs[] = $catalog;
+            }
             return new DataResponse(['catalogs' => $catalogs]);
         } catch (\Throwable $e) {
             $this->logger->error('Gefahrstoffkataster: Kataloge konnten nicht geladen werden.', ['exception' => $e]);
@@ -1112,6 +1156,27 @@ class InventoryController extends Controller {
         }
     }
 
+    #[NoAdminRequired]
+    public function assignProducts(): DataResponse {
+        if (!$this->access->canManage()) return $this->denied();
+        try {
+            $input = $this->payload();
+            $targetId = CatalogScope::parse($input['target_catalog_id'] ?? null);
+            $target = $targetId === null ? null : $this->catalogService->getCatalogById($targetId);
+            if (!$target || !$this->access->canManageCatalog($targetId)) return $this->denied();
+            $ids = $input['product_ids'] ?? null;
+            if (!is_array($ids) || !array_is_list($ids)) throw new \InvalidArgumentException('Produktauswahl ungültig.');
+            $count = (new CatalogAssignmentService($this->db))->assign($ids, $targetId, (string)$target['name']);
+            $this->logger->info('Gefahrstoffkataster: Produkte einem Katalog zugeordnet.', ['actor' => $this->session->getUser()->getUID(), 'product_ids' => $ids, 'target_catalog_id' => $targetId]);
+            return new DataResponse(['assigned' => $count, 'target_catalog_id' => $targetId]);
+        } catch (\InvalidArgumentException|\JsonException $e) {
+            return $this->fail($e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalogzuordnung fehlgeschlagen.', ['exception' => $e]);
+            return $this->fail('Zuordnung nicht gespeichert. Bitte neu laden und die Lagerort-Zuordnung prüfen.', 409);
+        }
+    }
+
     // ==================== Product Copy Between Catalogs ====================
 
     #[NoAdminRequired]
@@ -1227,5 +1292,6 @@ class InventoryController extends Controller {
         }
     }
 }
+
 
 

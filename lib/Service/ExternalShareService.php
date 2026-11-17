@@ -29,11 +29,14 @@ final class ExternalShareService {
         return is_array($data) && is_array($data['links'] ?? null) ? $data['links'] : [];
     }
 
-    public function listing(): array {
+    public function listing(?int $catalogId = null): array {
         $items = [];
         foreach ($this->entries() as $hash => $entry) {
             if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash) || !is_array($entry)) continue;
+            if (($entry['catalog_id'] ?? null) !== $catalogId) continue;
             $items[] = [
+                'catalog_id' => $entry['catalog_id'] ?? null,
+                'legacy_catalog_binding' => !array_key_exists('catalog_id', $entry),
                 'id' => $hash,
                 'label' => $entry['label'] ?? '',
                 'scope' => $entry['scope'] ?? 'kataster',
@@ -50,7 +53,8 @@ final class ExternalShareService {
         return ['links' => $items, 'revision' => hash('sha256', $this->raw())];
     }
 
-    public function create(string $label, string $scope, int $days, string $password, string $actor, string $revision, string $access = 'read', string $recipient = ''): array {
+    public function create(string $label, string $scope, int $days, string $password, string $actor, string $revision, string $access = 'read', string $recipient = '', ?int $catalogId = null): array {
+        if ($catalogId !== null && $catalogId < 1) throw new \InvalidArgumentException('Katalog ungültig.');
         $label = trim($label);
         if ($label === '' || mb_strlen($label) > 100) throw new \InvalidArgumentException('Bezeichnung muss 1 bis 100 Zeichen enthalten.');
         if (!in_array($scope, self::SCOPES, true)) throw new \InvalidArgumentException('Freigabebereich ungültig.');
@@ -78,6 +82,7 @@ final class ExternalShareService {
         $hash = hash('sha256', $token);
         $now = time();
         $entries[$hash] = [
+            'catalog_id' => $catalogId,
             'label' => $label,
             'scope' => $scope,
             'created_at' => $now,
@@ -108,6 +113,7 @@ final class ExternalShareService {
         $entry = $this->entries()[hash('sha256', $token)] ?? null;
         if (!is_array($entry) || !in_array($entry['scope'] ?? null, self::SCOPES, true)
             || (int)($entry['expires_at'] ?? 0) <= time()) return null;
+        if (isset($entry['catalog_id']) && (!is_int($entry['catalog_id']) || $entry['catalog_id'] < 1)) return null;
         return $entry;
     }
 
@@ -130,3 +136,4 @@ final class ExternalShareService {
             json_encode(['links' => $entries], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
     }
 }
+

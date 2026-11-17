@@ -65,12 +65,9 @@ class App extends BaseApp implements IBootstrap {
         // Ensure catalog table exists and has default catalog
         try {
             $catalogService = $context->getAppContainer()->query(\OCA\Gefahrstoffkataster\Service\CatalogService::class);
-            $catalogService->ensureDefaultCatalog();
+            // Catalogs are created explicitly through the management API.
             
-            $defaultCatalogId = $catalogService->getDefaultCatalogId();
-            if ($defaultCatalogId !== null) {
-                $catalogService->assignOrphanedRecordsToCatalog($defaultCatalogId);
-            }
+            // Unassigned records remain in "Ohne Katalog" until explicitly assigned.
         } catch (\Exception $e) {
             // Log error but don't fail boot
             $logger = $context->getAppContainer()->query(\Psr\Log\LoggerInterface::class);
@@ -78,3 +75,4 @@ class App extends BaseApp implements IBootstrap {
         }
     }
 }
+

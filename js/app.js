@@ -1,6 +1,10 @@
 const state = {view:'lager',permissions:{},shareRevision:null,externalShareRevision:null,products:[],locations:[],current:null,stockProduct:null,scannerControls:null,cameraTrack:null,scanning:false,torchOn:false};
 const $ = id => document.getElementById(id);
-const url = path => OC.generateUrl('/apps/gefahrstoffkataster'+path);
+const catalogKey = () => window.CatalogManager?.getCurrentCatalogId() ?? 'legacy';
+const urlFor = (path, key) => OC.generateUrl('/apps/gefahrstoffkataster'+path)+(path.includes('?')?'&':'?')+'catalog_id='+encodeURIComponent(key);
+const url = path => urlFor(path, catalogKey());
+let loadSequence = 0;
+let savingProduct = false;
 const format = n => new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(n);
 let toastTimer;
 function notice(message,error=false){const el=$('toast');el.textContent=message;el.className=(error?'error ':'')+'show';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',4800)}
@@ -12,18 +16,30 @@ async function request(path,body,method='POST'){
   return result;
 }
 async function load(){
+  const sequence = ++loadSequence, selected = catalogKey();
+  $('new-product').disabled=true; $('add-location').disabled=true;
   try{
-    const r=await fetch(url('/api/bootstrap'));
+    const r=await fetch(urlFor('/api/bootstrap', selected), {cache:'no-store'});
     if(!r.ok){
       let detail='';try{const body=await r.json();detail=body.error||''}catch{}
       throw Error(`Laden fehlgeschlagen (HTTP ${r.status})${detail?': '+detail:''}.`);
     }
-    const data=await r.json();state.products=data.products;state.locations=data.locations;state.permissions=data.permissions||{};
+    const data=await r.json();
+    if(sequence!==loadSequence || selected!==catalogKey())return;
+    state.products=data.products;state.locations=data.locations;state.permissions=data.permissions||{};
+    $('assign-products').hidden=!data.can_assign;
+    $('external-share-catalog-label').textContent=window.CatalogManager?.getCurrentCatalog()?.name || 'Ohne Katalog';
+    $('export-xlsx').href=url('/api/export/xlsx'); $('export-csv').href=url('/api/export/csv');
     $('manage-shares').hidden=!state.permissions.manage;
     $('new-product').hidden=!state.permissions.editBasic;
     $('add-location').hidden=!state.permissions.manage;
     render();$('load-error').hidden=true;
-  }catch(err){$('load-error-text').textContent=err.message;$('load-error').hidden=false;notice(err.message,true)}
+  }catch(err){
+    if(sequence!==loadSequence || selected!==catalogKey())return;
+    $('load-error-text').textContent=err.message;$('load-error').hidden=false;notice(err.message,true);
+  }finally{
+    if(sequence===loadSequence){$('new-product').disabled=false;$('add-location').disabled=false;}
+  }
 }
 function optionize(select,selected,allLabel){
   select.replaceChildren();if(allLabel)select.add(new Option(allLabel,''));
@@ -52,9 +68,8 @@ function setView(view){
 }
 const materialKinds={chemical:'Chemikalien',consumable:'Verbrauchsmaterial',other:'Sonstiges',unclassified:'Nicht zugeordnet'};
 function render(){
-  // Filter by catalog if catalogState is available
-  const currentCatalogId = typeof catalogState !== 'undefined' ? catalogState.currentCatalogId : null;
-  const catalogProducts = currentCatalogId ? state.products.filter(p=>p.catalog_id===currentCatalogId||p.catalog_id===null) : state.products;
+  // The server returns only the active catalog, including its own locations.
+  const catalogProducts = state.products;
   $('count-products').textContent=catalogProducts.length;
   $('count-hazards').textContent=catalogProducts.filter(x=>x.hazardous).length;
   $('count-missing').textContent=catalogProducts.filter(x=>x.hazardous&&!x.sds_id&&!x.sds_url).length;
@@ -65,7 +80,7 @@ function render(){
   categoryFilter.replaceChildren(new Option('Alle Kategorien',''),...categories.map(name=>new Option(name,name)));
   categoryFilter.value=categories.includes(selectedCategory)?selectedCategory:'';
   const q=$('search').value.trim().toLocaleLowerCase('de');const loc=$('location-filter').value;const hazard=$('hazard-filter').value;const kind=$('material-filter').value;const category=$('category-filter').value;
-  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(state.view!=='lager'||!kind||(p.material_kind||'unclassified')===kind)&&(!category||p.category===category)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url)&&(!currentCatalogId||p.catalog_id===currentCatalogId||p.catalog_id===null));
+  const matching=state.products.filter(p=>(state.view==='lager'||p.hazardous)&&(state.view!=='lager'||!kind||(p.material_kind||'unclassified')===kind)&&(!category||p.category===category)&&(!q||[p.name,p.manufacturer,p.article,p.ean,p.ufi].join(' ').toLocaleLowerCase('de').includes(q))&&(!loc||p.stock.some(s=>String(s.location_id)===loc&&s.packs>0))&&(!hazard||hazard==='hazard'&&p.hazardous||hazard==='missing'&&p.hazardous&&!p.sds_id&&!p.sds_url));
   const list=$('product-list');list.replaceChildren();$('empty').hidden=matching.length>0;
   if(!matching.length)$('empty').textContent=catalogProducts.length?'Keine Produkte für diese Filter gefunden.':'Hier ist noch kein Produkt erfasst. Starte mit dem ersten Gebinde.';
   for(const p of matching){
@@ -431,7 +446,7 @@ async function upload(productId,file,kind){
   return result.id;
 }
 $('product-form').addEventListener('submit',async event=>{
-  event.preventDefault();const save=$('save-product');save.disabled=true;save.textContent='Speichere …';
+  event.preventDefault();savingProduct=true;const save=$('save-product');save.disabled=true;save.textContent='Speichere …';
   try{
     const f=event.currentTarget;
     const keys=['name','manufacturer','article','ean','ufi','material_kind','category','use_area','unit','classification','ghs','signal','h_statements','storage_note','sds_date','checked_at','source_url','sds_url','pmb_url'];
@@ -465,7 +480,7 @@ $('product-form').addEventListener('submit',async event=>{
     }catch(err){await load();notice('Produkt gespeichert, aber mindestens ein Upload ist fehlgeschlagen: '+err.message,true);return}
     await load();notice('Produkt und Dateien gespeichert.');
   }catch(err){notice(err.message,true)}
-  finally{save.disabled=false;save.textContent='Produkt speichern'}
+  finally{savingProduct=false;save.disabled=false;save.textContent='Produkt speichern'}
 });
 $('stock-form').addEventListener('submit',async event=>{
   event.preventDefault();const save=$('save-stock');save.disabled=true;
@@ -725,9 +740,54 @@ $('scan-photo-input').addEventListener('change',async event=>{
 });
 $('scan-photo-input').addEventListener('cancel',()=>{$('scan-status').textContent='Kein Foto aufgenommen. Du kannst es erneut versuchen oder die Nummer eingeben.'});
 $('scan-manual').addEventListener('click',()=>{close('scan-dialog');$('product-form').elements.ean.focus()});
-$('export-xlsx').href=url('/api/export/xlsx');
-$('export-csv').href=url('/api/export/csv');
+$('assign-products').addEventListener('click', async()=>{
+  try {
+    await window.CatalogManager.loadCatalogs();
+    const response=await fetch(urlFor('/api/bootstrap','legacy'), {cache:'no-store'});
+    const data=await response.json(); if(!response.ok)throw Error(data.error||'Produkte konnten nicht geladen werden.');
+    const target=$('assignment-target');target.replaceChildren(new Option('Zielkatalog wählen',''));
+    for(const catalog of window.CatalogManager.getCatalogs())if(catalog.id!=='legacy' && catalog.permissions?.manage)target.add(new Option(catalog.name,String(catalog.id)));
+    const list=$('assignment-products');list.replaceChildren();
+    for(const product of data.products){
+      const label=el('label','assignment-product');const input=el('input');input.type='checkbox';input.value=String(product.id);
+      label.append(input,document.createTextNode(product.name));list.append(label);
+    }
+    if(!data.products.length)list.append(el('p','hint','Alle Produkte sind bereits einem Katalog zugeordnet.'));
+    $('assignment-error').hidden=true;show('assignment-dialog');
+  }catch(err){notice(err.message,true);}
+});
+$('assignment-select-all').addEventListener('click',()=>{for(const input of $('assignment-products').querySelectorAll('input'))input.checked=true;});
+$('assignment-form').addEventListener('submit',async event=>{
+  event.preventDefault();const submit=$('assignment-submit');if(submit.disabled)return;submit.disabled=true;
+  try {
+    const ids=[...$('assignment-products').querySelectorAll('input:checked')].map(input=>Number(input.value));
+    if(!ids.length)throw Error('Bitte mindestens ein Produkt auswählen.');
+    const target=Number($('assignment-target').value);if(!target)throw Error('Bitte einen Zielkatalog wählen.');
+    const result=await request('/api/catalog-assignment',{product_ids:ids,target_catalog_id:target});
+    close('assignment-dialog');await load();notice(result.assigned+' Produkte wurden zugeordnet.');
+  }catch(err){$('assignment-error').textContent=err.message;$('assignment-error').hidden=false;}
+  finally{submit.disabled=false;}
+});
+window.addEventListener('gsk-before-catalog-change', event => {
+  if(savingProduct || ($('stock-dialog').open && $('save-stock').disabled) || ($('sharing-dialog').open && $('external-share-submit').disabled)) {
+    event.preventDefault(); notice('Bitte den laufenden Speichervorgang abwarten.', true);
+  }
+});
+window.addEventListener('gsk-catalog-change', () => {
+  for(const id of ['product-dialog','stock-dialog','sharing-dialog','scan-dialog'])if($(id).open)close(id);
+  state.current=null;state.stockProduct=null;state.products=[];state.locations=[];state.permissions={};
+  for(const id of ['search','location-filter','material-filter','category-filter'])$(id).value='';
+  render();
+  for(const id of ['count-products','count-hazards','count-missing','count-locations'])$(id).textContent='…';
+  $('empty').textContent='Bestand wird geladen …';
+  $('load-error').hidden=true;
+  load();
+});
 setView('lager');
-load();
+(async()=>{
+  try {await window.CatalogManager?.loadCatalogs(); await load();}
+  catch(err){$('load-error-text').textContent=err.message;$('load-error').hidden=false;notice(err.message,true);}
+})();
+
 
 

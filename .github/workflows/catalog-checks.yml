@@ -1,0 +1,39 @@
+name: Catalog regression checks
+on:
+  pull_request:
+  push:
+    branches: ['fix/catalog-switch-assignment-shares']
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+      - name: PHP syntax and isolated service checks
+        run: |
+          find lib templates appinfo tests -name '*.php' -print0 | xargs -0 -n1 php -l
+          php tests/catalog-integration.php
+          php tests/access-policy.php
+          php tests/role-protection.php
+          php tests/external-shares.php
+          php tests/external-share-projection.php
+          php tests/external-stock-validation.php
+      - name: JavaScript regression checks
+        run: |
+          node --check js/app.js
+          node --check js/catalog.js
+          node tests/catalog-ui.js
+          node tests/inventory-navigation.js
+          node tests/main-template.js
+      - name: Browser fixture at mobile and desktop sizes
+        run: |
+          npm install --no-save --ignore-scripts playwright
+          npx playwright install --with-deps chromium
+          node tests/main-template.js --browser

@@ -7,7 +7,7 @@
 
 const catalogState = {
   catalogs: [],
-  currentCatalogId: null,
+  currentCatalogId: 'legacy',
   loading: false,
   editCatalogId: null,
   saving: false,
@@ -22,6 +22,7 @@ const catalogUrl = path => OC.generateUrl('/apps/gefahrstoffkataster' + path);
  * Zeigt eine Benachrichtigung an
  */
 function catalogNotice(message, error = false) {
+  if (typeof notice === 'function') {notice(message, error); return;}
   const el = catalog$('toast');
   if (el) {
     el.textContent = message;
@@ -38,6 +39,7 @@ function catalogNotice(message, error = false) {
  */
 async function catalogGet(path) {
   const response = await fetch(catalogUrl(path), {
+    cache: 'no-store',
     headers: { requesttoken: OC.requestToken }
   });
   if (!response.ok) {
@@ -93,14 +95,16 @@ async function loadCatalogs() {
     const data = await catalogGet('/api/catalogs');
     catalogState.catalogs = (data.catalogs || []).map(catalog => ({
       ...catalog,
-      id: Number(catalog.id),
+      id: catalog.legacy || catalog.id === 'legacy' ? 'legacy' : Number(catalog.id),
       is_default: [true, 1, '1'].includes(catalog.is_default)
     }));
     
     // Standard-Katalog setzen
-    if (catalogState.catalogs.length > 0 && !catalogState.currentCatalogId) {
-      const defaultCatalog = catalogState.catalogs.find(c => c.is_default);
-      catalogState.currentCatalogId = defaultCatalog ? defaultCatalog.id : catalogState.catalogs[0].id;
+    let saved;
+    try {saved = sessionStorage.getItem('gsk-current-catalog');} catch {}
+    if (saved && catalogState.catalogs.some(c => String(c.id) === saved)) catalogState.currentCatalogId = saved === 'legacy' ? 'legacy' : Number(saved);
+    if (!catalogState.catalogs.some(c => c.id === catalogState.currentCatalogId)) {
+      catalogState.currentCatalogId = catalogState.catalogs.find(c => c.id === 'legacy')?.id ?? catalogState.catalogs[0]?.id ?? 'legacy';
     }
     
     updateCatalogSelect();
@@ -128,8 +132,7 @@ async function createCatalog(name, description = '') {
   catalogState.catalogs.push(result.catalog);
   
   // Als aktuellen Katalog setzen
-  catalogState.currentCatalogId = result.catalog.id;
-  
+  switchCatalog(result.catalog.id);
   updateCatalogSelect();
   catalogNotice('Katalog erstellt: ' + name);
   
@@ -181,15 +184,20 @@ async function deleteCatalog(id) {
  * Wechselt den aktuellen Katalog
  */
 function switchCatalog(catalogId) {
-  catalogState.currentCatalogId = catalogId;
-  catalog$('catalog-select').value = catalogId;
-  
-  // Hier könnte man die Produktliste neu laden, um nur Produkte des ausgewählten Katalogs anzuzeigen
-  // Für jetzt: Benachrichtigung
-  const catalog = catalogState.catalogs.find(c => c.id === catalogId);
-  if (catalog) {
-    catalogNotice('Katalog gewechselt zu: ' + catalog.name);
+  const id = catalogId === 'legacy' ? 'legacy' : Number(catalogId);
+  const catalog = catalogState.catalogs.find(c => c.id === id);
+  if (!catalog) return false;
+  if (window.dispatchEvent && !window.dispatchEvent(new CustomEvent('gsk-before-catalog-change', {cancelable: true}))) {
+    updateCatalogSelect(); return false;
   }
+  catalogState.currentCatalogId = id;
+  try {sessionStorage.setItem('gsk-current-catalog', String(id));} catch {}
+  updateCatalogSelect();
+  renderCatalogList();
+  if (catalog$('catalog-list-dialog')?.open) catalog$('catalog-list-dialog').close();
+  window.dispatchEvent?.(new CustomEvent('gsk-catalog-change', {detail: {catalogId: id}}));
+  catalogNotice('Katalog gewählt: ' + catalog.name);
+  return true;
 }
 
 /**
@@ -292,11 +300,12 @@ function renderCatalogList() {
     editBtn.type = 'button';
     editBtn.className = 'secondary';
     editBtn.textContent = 'Bearbeiten';
+    editBtn.disabled = catalog.id === 'legacy' || catalog.permissions?.manage === false;
     editBtn.addEventListener('click', () => openCatalogEdit(catalog.id));
     actionsCell.appendChild(editBtn);
     
     // Löschen-Button (nur für Nicht-Standard-Kataloge)
-    if (!catalog.is_default) {
+    if (!catalog.is_default && catalog.id !== 'legacy') {
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'secondary danger';
@@ -310,6 +319,7 @@ function renderCatalogList() {
     selectBtn.type = 'button';
     selectBtn.className = 'secondary';
     selectBtn.textContent = catalog.id === catalogState.currentCatalogId ? 'Aktiv' : 'Auswählen';
+    selectBtn.disabled = catalog.id === catalogState.currentCatalogId;
     selectBtn.addEventListener('click', () => switchCatalog(catalog.id));
     actionsCell.appendChild(selectBtn);
     
@@ -443,7 +453,7 @@ function initCatalogUI() {
   catalogUIInitialized = true;
   // Katalog-Auswahl initialisieren
   updateCatalogSelect();
-  catalog$('catalog-select')?.addEventListener('change', e => switchCatalog(Number(e.target.value)));
+  catalog$('catalog-select')?.addEventListener('change', e => switchCatalog(e.target.value));
   catalog$('add-catalog')?.addEventListener('click', () => openCatalogEdit());
   
   // Button: Kataloge verwalten
@@ -521,6 +531,8 @@ window.CatalogManager = {
   deleteCatalog,
   switchCatalog,
   getCurrentCatalogId: () => catalogState.currentCatalogId,
+  getCurrentCatalog: () => catalogState.catalogs.find(c => c.id === catalogState.currentCatalogId),
   getCatalogs: () => catalogState.catalogs
 };
+
 

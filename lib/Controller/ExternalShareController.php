@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace OCA\Gefahrstoffkataster\Controller;
 
 use OCA\Gefahrstoffkataster\Service\AccessPolicy;
+use OCA\Gefahrstoffkataster\Service\CatalogScope;
+use OCA\Gefahrstoffkataster\Service\CatalogService;
 use OCA\Gefahrstoffkataster\Service\ExternalShareService;
 use OCA\Gefahrstoffkataster\Service\ExternalShareProjection;
 use OCA\Gefahrstoffkataster\Service\ExternalStockBookingService;
@@ -32,6 +34,7 @@ final class ExternalShareController extends Controller {
         private ExternalShareService $shares,
         private ExternalStockBookingService $stockBookings,
         private AccessPolicy $access,
+        private CatalogService $catalogs,
         private IDBConnection $db,
         private IAppData $appData,
         private IUserSession $session,
@@ -39,6 +42,18 @@ final class ExternalShareController extends Controller {
         private LoggerInterface $logger,
     ) {
         parent::__construct($appName, $request);
+    }
+
+    private function catalogId(): ?int {
+        return CatalogScope::parse($this->request->getParam('catalog_id'));
+    }
+
+    private function canManageCatalog(): bool {
+        if (!$this->access->canManage()) return false;
+        try {
+            $id = $this->catalogId();
+            return $id === null || ($this->catalogs->getCatalogById($id) && $this->access->canManageCatalog($id));
+        } catch (\InvalidArgumentException $e) {return false;}
     }
 
     private function fail(string $message, int $status = Http::STATUS_BAD_REQUEST): DataResponse {
@@ -56,13 +71,13 @@ final class ExternalShareController extends Controller {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function listLinks(): DataResponse {
-        if (!$this->access->canManage()) return $this->fail('Zugriff verweigert.', Http::STATUS_FORBIDDEN);
-        return new DataResponse($this->shares->listing());
+        if (!$this->canManageCatalog()) return $this->fail('Zugriff verweigert.', Http::STATUS_FORBIDDEN);
+        return new DataResponse($this->shares->listing($this->catalogId()));
     }
 
     #[NoAdminRequired]
     public function createLink(): DataResponse {
-        if (!$this->access->canManage()) return $this->fail('Zugriff verweigert.', Http::STATUS_FORBIDDEN);
+        if (!$this->canManageCatalog()) return $this->fail('Zugriff verweigert.', Http::STATUS_FORBIDDEN);
         try {
             $input = $this->payload();
             $label = $input['label'] ?? null;
@@ -76,12 +91,12 @@ final class ExternalShareController extends Controller {
                 throw new \InvalidArgumentException('Eingabe ungültig.');
             }
             $actor = $this->session->getUser()->getUID();
-            $link = $this->shares->create($label, $scope, $days, $password, $actor, $revision, $access, $recipient);
+            $link = $this->shares->create($label, $scope, $days, $password, $actor, $revision, $access, $recipient, $this->catalogId());
             $this->logger->info('Gefahrstoffkataster: Externe Freigabe erstellt.',
                 ['actor' => $actor, 'link_id' => substr($link['id'], 0, 12), 'scope' => $scope, 'access' => $access, 'recipient' => $recipient]);
             return new DataResponse([
                 'url' => $this->urls->linkToRouteAbsolute('gefahrstoffkataster.external_share.view', ['token' => $link['token']]),
-                'expires_at' => $link['expires_at'], 'links' => $this->shares->listing(),
+                'expires_at' => $link['expires_at'], 'links' => $this->shares->listing($this->catalogId()),
             ], Http::STATUS_CREATED);
         } catch (\RuntimeException $e) {
             return $this->fail($e->getMessage(), Http::STATUS_CONFLICT);
@@ -92,16 +107,17 @@ final class ExternalShareController extends Controller {
 
     #[NoAdminRequired]
     public function revokeLink(): DataResponse {
-        if (!$this->access->canManage()) return $this->fail('Zugriff verweigert.', Http::STATUS_FORBIDDEN);
+        if (!$this->canManageCatalog()) return $this->fail('Zugriff verweigert.', Http::STATUS_FORBIDDEN);
         try {
             $input = $this->payload();
             if (!is_string($input['id'] ?? null) || !is_string($input['revision'] ?? null)) {
                 throw new \InvalidArgumentException('Eingabe ungültig.');
             }
+            if (!in_array($input['id'], array_column($this->shares->listing($this->catalogId())['links'], 'id'), true)) throw new \InvalidArgumentException('Freigabe gehört nicht zu diesem Katalog.');
             $this->shares->revoke($input['id'], $input['revision']);
             $this->logger->info('Gefahrstoffkataster: Externer Leselink widerrufen.',
                 ['actor' => $this->session->getUser()->getUID(), 'link_id' => substr($input['id'], 0, 12)]);
-            return new DataResponse($this->shares->listing());
+            return new DataResponse($this->shares->listing($this->catalogId()));
         } catch (\RuntimeException $e) {
             return $this->fail($e->getMessage(), Http::STATUS_CONFLICT);
         } catch (\InvalidArgumentException|\JsonException|\TypeError $e) {
@@ -137,13 +153,11 @@ final class ExternalShareController extends Controller {
             return $this->deniedPublic();
         }
         try {
-            $projection = ExternalShareProjection::build(
-                $this->rows('gsk_product'),
-                $this->rows('gsk_location'),
-                $this->rows('gsk_stock'),
-                $this->rows('gsk_file'),
-                $entry['scope']
-            );
+            // A public request cannot choose/override the catalog stored in its token.
+            // Older links without a binding are narrowed to unassigned inventory.
+            $bound = CatalogScope::project($this->rows('gsk_product'), $this->rows('gsk_location'),
+                $this->rows('gsk_stock'), $this->rows('gsk_file'), $entry['catalog_id'] ?? null);
+            $projection = ExternalShareProjection::build($bound['products'], $bound['locations'], $bound['stock'], $bound['files'], $entry['scope']);
             $fullDetails = !empty($entry['full_details']);
             if (!$fullDetails) $projection = ExternalShareProjection::legacy($projection, $entry['scope']);
             $products = $projection['products'];
@@ -154,7 +168,7 @@ final class ExternalShareController extends Controller {
                 && !empty($entry['password_hash']) && $entry['scope'] === 'kataster') {
                 $locations = array_map(static fn(array $row): array => [
                     'id'=>(int)$row['id'],'name'=>(string)$row['name']
-                ], $this->rows('gsk_location'));
+                ], $bound['locations']);
             }
             $this->logger->info('Gefahrstoffkataster: Externer Leselink verwendet.',
                 ['link_id' => substr(hash('sha256', $token), 0, 12), 'scope' => $entry['scope']]);
@@ -209,7 +223,7 @@ final class ExternalShareController extends Controller {
             // independently verified human identity. Never log the secret token.
             $id=substr(hash('sha256',$token),0,16);
             $actor='external:'.$id;
-            $change=$this->stockBookings->book($input,(string)$entry['scope'],$actor);
+            $change=$this->stockBookings->book($input,(string)$entry['scope'],$actor,$entry['catalog_id'] ?? null);
             $this->logger->info('Gefahrstoffkataster: Externe Bestandsbuchung.', [
                 'link_id'=>$id,'recipient'=>(string)$entry['recipient'],'action'=>(string)$input['action'],
                 'product_id'=>(int)$input['product_id'],'location_id'=>(int)$input['location_id'],
@@ -244,7 +258,7 @@ final class ExternalShareController extends Controller {
             return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         }
         $product = $this->one('gsk_product', (int)$file['product_id']);
-        if (!$product) return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
+        if (!$product || !CatalogScope::matches($product, $entry['catalog_id'] ?? null)) return $this->fail('Datei nicht verfügbar.', Http::STATUS_NOT_FOUND);
         $p = json_decode($product['details'], true);
         if (!is_array($p) || !ExternalShareProjection::allowsFile(
             $file, $p, $this->rows('gsk_file'), $entry['scope']
@@ -313,3 +327,4 @@ final class ExternalShareController extends Controller {
         return $response;
     }
 }
+

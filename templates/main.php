@@ -10,6 +10,7 @@ declare(strict_types=1);
           <label for="catalog-select">Katalog:</label>
           <select id="catalog-select"><option value="">Lade Kataloge...</option></select>
         </div>
+        <button id="assign-products" type="button" class="secondary" hidden>Produkte zuordnen</button>
         <button id="manage-catalogs" type="button" class="secondary">Kataloge verwalten</button>
         <button id="manage-shares" type="button" class="secondary" hidden>Freigaben</button>
         <a id="export-xlsx" class="secondary">Excel exportieren</a>
@@ -60,6 +61,20 @@ declare(strict_types=1);
       </div>
       <div id="catalog-list" class="catalog-list" aria-live="polite"></div>
     </div>
+  </dialog>
+
+  <dialog id="assignment-dialog" aria-labelledby="assignment-title">
+    <form id="assignment-form">
+      <header class="dialog-head"><h2 id="assignment-title">Produkte einem Katalog zuordnen</h2><button type="button" class="close" data-close="assignment-dialog" aria-label="Schließen">×</button></header>
+      <div class="dialog-scroll">
+        <p>Ausgewählte Produkte werden aus „Ohne Katalog“ in den Zielkatalog verschoben. Bestand, Buchungshistorie und Dateien bleiben erhalten. Gemeinsam genutzte Lagerorte werden für den Zielkatalog getrennt übernommen.</p>
+        <label>Zielkatalog<select id="assignment-target" required></select></label>
+        <button id="assignment-select-all" type="button" class="secondary">Alle auswählen</button>
+        <div id="assignment-products"></div>
+        <p id="assignment-error" class="warning" role="alert" hidden></p>
+      </div>
+      <footer class="dialog-actions"><button type="button" class="secondary" data-close="assignment-dialog">Abbrechen</button><button id="assignment-submit" type="submit" class="primary">Ausgewählte Produkte zuordnen</button></footer>
+    </form>
   </dialog>
 
   <dialog id="catalog-edit-dialog" aria-labelledby="catalog-edit-title">
@@ -204,6 +219,7 @@ declare(strict_types=1);
       <section id="share-external-panel" class="external-share-manager share-panel" role="tabpanel" aria-labelledby="share-tab-external" hidden>
         <h3 id="external-share-title">Externe Links (ohne Nextcloud-Konto)</h3>
         <p class="hint">Externe Links können nur lesen oder zusätzlich Bestände buchen. Vergib Schreibrechte persönlich, mit einem eigenen Link und verpflichtendem Passwort. Gefahrstoffdaten und Stammdaten bleiben geschützt.</p>
+        <p class="hint">Externe Freigaben für: <strong id="external-share-catalog-label">Ohne Katalog</strong></p>
         <form id="external-share-form">
           <div class="grid">
             <label class="full">Bezeichnung<input id="external-share-label" required maxlength="100" placeholder="z. B. Hygieneinstitut – November"></label>
@@ -258,4 +274,5 @@ declare(strict_types=1);
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 </div>
+
 

@@ -16,6 +16,7 @@ return ['routes' => [
     ['name' => 'inventory#getCatalogShares', 'url' => '/api/catalogs/{id}/shares', 'verb' => 'GET'],
     ['name' => 'inventory#setCatalogShare', 'url' => '/api/catalogs/{id}/shares', 'verb' => 'POST'],
     ['name' => 'inventory#revokeCatalogShare', 'url' => '/api/catalogs/{id}/shares/revoke', 'verb' => 'POST'],
+    ['name' => 'inventory#assignProducts', 'url' => '/api/catalog-assignment', 'verb' => 'POST'],
     // Product copy between catalogs
     ['name' => 'inventory#getCopyableProducts', 'url' => '/api/catalogs/{catalogId}/copyable-products', 'verb' => 'GET'],
     ['name' => 'inventory#copyProductToCatalog', 'url' => '/api/products/{productId}/copy-to/{catalogId}', 'verb' => 'POST'],
@@ -42,3 +43,4 @@ return ['routes' => [
     ['name' => 'inventory#download', 'url' => '/api/files/{id}', 'verb' => 'GET'],
     ['name' => 'inventory#export', 'url' => '/api/export/{format}', 'verb' => 'GET'],
 ]];
+

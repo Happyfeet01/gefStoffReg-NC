@@ -13,8 +13,7 @@ use OCP\Migration\SimpleMigrationStep;
  * This migration:
  * 1. Creates the gsk_catalog table
  * 2. Adds catalog_id column to all existing tables
- * 3. Creates a default catalog
- * 4. Assigns all existing records to the default catalog
+ * Existing records remain unassigned until a manager explicitly assigns them.
  */
 class Version20261117000000 extends SimpleMigrationStep {
     /**
@@ -54,11 +53,9 @@ class Version20261117000000 extends SimpleMigrationStep {
             ]);
             $table->addColumn('created_at', 'datetime', [
                 'notnull' => true,
-                'default' => 'CURRENT_TIMESTAMP',
             ]);
             $table->addColumn('updated_at', 'datetime', [
                 'notnull' => true,
-                'default' => 'CURRENT_TIMESTAMP',
             ]);
             $table->addColumn('created_by', 'string', [
                 'notnull' => false,
@@ -106,10 +103,7 @@ class Version20261117000000 extends SimpleMigrationStep {
      * @param array $options
      */
     public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
-        // This method is called after the schema change
-        // We need to create the default catalog and assign existing records
-        // However, in Nextcloud migrations, we typically can't execute arbitrary SQL
-        // So we'll handle this in the CatalogService initialization
-        $output->info('Catalog migration completed. Default catalog will be created on first use.');
+        $output->info('Catalog schema prepared. Existing inventory remains without a catalog until explicitly assigned.');
     }
 }
+

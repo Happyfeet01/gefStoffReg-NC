@@ -203,49 +203,28 @@ final class CatalogService {
      * @return bool
      */
     public function deleteCatalog(int $id): bool {
-        $qb = $this->db->getQueryBuilder();
-        
-        // Check if it's the default catalog
-        $catalog = $this->getCatalogById($id);
-        if ($catalog === null) {
-            return false;
-        }
-        
-        if ($catalog['is_default'] === true || $catalog['is_default'] === '1') {
-            throw new \RuntimeException('Cannot delete the default catalog');
-        }
-        
-        // Check if catalog has any products
-        $count = $qb->select($qb->func()->count('*', 'count'))
-            ->from('gsk_product')
-            ->where($qb->expr()->eq('catalog_id', $qb->createNamedParameter($id)))
-            ->executeQuery()
-            ->fetchOne();
-        
-        if ($count > 0) {
-            throw new \RuntimeException('Cannot delete catalog with existing products');
-        }
-        
-        // Check other tables
-        $tables = ['gsk_location', 'gsk_stock', 'gsk_file', 'gsk_event'];
-        foreach ($tables as $table) {
-            $count = $qb->select($qb->func()->count('*', 'count'))
-                ->from($table)
-                ->where($qb->expr()->eq('catalog_id', $qb->createNamedParameter($id)))
-                ->executeQuery()
-                ->fetchOne();
-            
-            if ($count > 0) {
-                throw new \RuntimeException("Cannot delete catalog with existing {$table} records");
+        $this->db->beginTransaction();
+        try {
+            // Assignment locks the same catalog row before adding any inventory.
+            $q = $this->db->getQueryBuilder();
+            $catalog = $q->select('*')->from(self::TABLE_NAME)->where($q->expr()->eq('id', $q->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+                ->forUpdate()->executeQuery()->fetchAssociative();
+            if (!$catalog) {$this->db->commit(); return false;}
+            if ((int)$catalog['is_default'] === 1) throw new \RuntimeException('Der Standardkatalog kann nicht gelöscht werden.');
+            foreach (['gsk_product','gsk_location','gsk_stock','gsk_file','gsk_event'] as $table) {
+                $q = $this->db->getQueryBuilder();
+                $count = $q->select($q->func()->count('*', 'count'))->from($table)
+                    ->where($q->expr()->eq('catalog_id', $q->createNamedParameter($id, IQueryBuilder::PARAM_INT)))->executeQuery()->fetchOne();
+                if ((int)$count > 0) throw new \RuntimeException('Der Katalog enthält noch Daten und kann nicht gelöscht werden.');
             }
+            $q = $this->db->getQueryBuilder();
+            $q->delete(self::TABLE_NAME)->where($q->expr()->eq('id', $q->createNamedParameter($id, IQueryBuilder::PARAM_INT)))->executeStatement();
+            $this->db->commit();
+            return true;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
         }
-        
-        // Delete the catalog
-        $qb->delete(self::TABLE_NAME)
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
-            ->executeStatement();
-        
-        return true;
     }
 
     /**
@@ -302,3 +281,4 @@ final class CatalogService {
         return $this->ensureDefaultCatalog();
     }
 }
+

@@ -13,8 +13,8 @@ final class Version20261117000001 extends SimpleMigrationStep {
         $schema = $schemaClosure();
         if (!$schema->hasTable('gsk_location')) return null;
         $table = $schema->getTable('gsk_location');
-        foreach ($table->getIndexes() as $name => $index) {
-            if ($index->isUnique() && $index->getColumns() === ['name']) $table->dropIndex($name);
+        foreach ($table->getIndexes() as $index) {
+            if ($index->isUnique() && $index->getColumns() === ['name']) $table->dropIndex($index->getName());
         }
         if (!$table->hasIndex('gsk_loc_cat_name')) $table->addUniqueIndex(['catalog_id', 'name'], 'gsk_loc_cat_name');
         return $schema;

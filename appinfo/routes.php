@@ -8,6 +8,17 @@ return ['routes' => [
     ['name' => 'inventory#shares', 'url' => '/api/shares', 'verb' => 'GET'],
     ['name' => 'inventory#saveShare', 'url' => '/api/shares', 'verb' => 'POST'],
     ['name' => 'inventory#revokeShare', 'url' => '/api/shares/revoke', 'verb' => 'POST'],
+    // Catalog management routes
+    ['name' => 'inventory#listCatalogs', 'url' => '/api/catalogs', 'verb' => 'GET'],
+    ['name' => 'inventory#createCatalog', 'url' => '/api/catalogs', 'verb' => 'POST'],
+    ['name' => 'inventory#updateCatalog', 'url' => '/api/catalogs/{id}', 'verb' => 'POST'],
+    ['name' => 'inventory#deleteCatalog', 'url' => '/api/catalogs/{id}', 'verb' => 'DELETE'],
+    ['name' => 'inventory#getCatalogShares', 'url' => '/api/catalogs/{id}/shares', 'verb' => 'GET'],
+    ['name' => 'inventory#setCatalogShare', 'url' => '/api/catalogs/{id}/shares', 'verb' => 'POST'],
+    ['name' => 'inventory#revokeCatalogShare', 'url' => '/api/catalogs/{id}/shares/revoke', 'verb' => 'POST'],
+    // Product copy between catalogs
+    ['name' => 'inventory#getCopyableProducts', 'url' => '/api/catalogs/{catalogId}/copyable-products', 'verb' => 'GET'],
+    ['name' => 'inventory#copyProductToCatalog', 'url' => '/api/products/{productId}/copy-to/{catalogId}', 'verb' => 'POST'],
     // Logged-in managers: link administration (POST requests retain normal CSRF checking).
     ['name' => 'external_share#listLinks', 'url' => '/api/external-links', 'verb' => 'GET'],
     ['name' => 'external_share#createLink', 'url' => '/api/external-links', 'verb' => 'POST'],

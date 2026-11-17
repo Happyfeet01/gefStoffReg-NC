@@ -5,6 +5,7 @@ namespace OCA\Gefahrstoffkataster\Controller;
 
 use OCA\Gefahrstoffkataster\Service\ApiKeyService;
 use OCA\Gefahrstoffkataster\Service\AccessPolicy;
+use OCA\Gefahrstoffkataster\Service\CatalogService;
 use OCA\Gefahrstoffkataster\Service\ResearchResponse;
 use OCA\Gefahrstoffkataster\Service\SdsAnalysis;
 use OCA\Gefahrstoffkataster\Service\SdsTextExtractor;
@@ -51,6 +52,7 @@ class InventoryController extends Controller {
         private IAppData $appData,
         private IUserSession $session,
         private AccessPolicy $access,
+        private CatalogService $catalogService,
         private IURLGenerator $urls,
         private LoggerInterface $logger,
         private IClientService $clientService,
@@ -907,6 +909,321 @@ class InventoryController extends Controller {
             return new DataDownloadResponse("\xEF\xBB\xBF" . $csv, 'Gefahrstoffkataster.csv', 'text/csv; charset=utf-8');
         } catch (\Throwable $e) {
             return $this->fail('Export fehlgeschlagen: ' . $e->getMessage(), 500);
+        }
+    }
+
+    // ==================== Catalog Management Methods ====================
+
+    #[NoAdminRequired]
+    public function listCatalogs(): DataResponse {
+        if (!$this->permitted()) return $this->denied();
+        
+        try {
+            $catalogs = $this->catalogService->getAllCatalogs();
+            return new DataResponse(['catalogs' => $catalogs]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Kataloge konnten nicht geladen werden.', ['exception' => $e]);
+            return $this->fail('Kataloge konnten nicht geladen werden.', 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function createCatalog(): DataResponse {
+        if (!$this->access->canManage()) return $this->denied();
+        
+        try {
+            $name = trim((string)$this->request->getParam('name', ''));
+            $description = trim((string)$this->request->getParam('description', ''));
+            
+            if ($name === '') {
+                return $this->fail('Bitte einen Katalognamen angeben.');
+            }
+            
+            if (strlen($name) > 255) {
+                return $this->fail('Der Katalognamen darf maximal 255 Zeichen lang sein.');
+            }
+            
+            $catalogId = $this->catalogService->createCatalog($name, $description);
+            
+            // Grant the current user manager access to the new catalog
+            $user = $this->session->getUser();
+            if ($user) {
+                $uid = $user->getUID();
+                $old = $this->access->config->getAppValue('gefahrstoffkataster', 'catalog_shares_v1', '{"users":{},"groups":{},"catalogs":{}}');
+                $revision = hash('sha256', $old);
+                $this->access->changeCatalogAccess('grant', 'user', $uid, $catalogId, 'catalog_manager', $revision);
+            }
+            
+            return new DataResponse(['catalog' => ['id' => $catalogId, 'name' => $name, 'description' => $description]], 201);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalog konnte nicht erstellt werden.', ['exception' => $e]);
+            return $this->fail('Katalog konnte nicht erstellt werden.', 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function updateCatalog(int $id): DataResponse {
+        if (!$this->access->canManageCatalog($id)) return $this->denied();
+        
+        try {
+            $name = $this->request->getParam('name');
+            $description = $this->request->getParam('description');
+            
+            $data = [];
+            if ($name !== null) {
+                $name = trim((string)$name);
+                if ($name === '') {
+                    return $this->fail('Der Katalognamen darf nicht leer sein.');
+                }
+                if (strlen($name) > 255) {
+                    return $this->fail('Der Katalognamen darf maximal 255 Zeichen lang sein.');
+                }
+                $data['name'] = $name;
+            }
+            if ($description !== null) {
+                $data['description'] = trim((string)$description);
+            }
+            
+            if (empty($data)) {
+                return $this->fail('Keine Aenderungen angegeben.');
+            }
+            
+            $success = $this->catalogService->updateCatalog($id, $data);
+            
+            if (!$success) {
+                return $this->fail('Katalog wurde nicht gefunden.');
+            }
+            
+            return new DataResponse(['success' => true]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalog konnte nicht aktualisiert werden.', ['exception' => $e]);
+            return $this->fail('Katalog konnte nicht aktualisiert werden.', 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function deleteCatalog(int $id): DataResponse {
+        if (!$this->access->canManageCatalog($id)) return $this->denied();
+        
+        try {
+            $success = $this->catalogService->deleteCatalog($id);
+            
+            if (!$success) {
+                return $this->fail('Katalog wurde nicht gefunden.');
+            }
+            
+            return new DataResponse(['success' => true]);
+        } catch (\RuntimeException $e) {
+            return $this->fail($e->getMessage(), 400);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalog konnte nicht geloscht werden.', ['exception' => $e]);
+            return $this->fail('Katalog konnte nicht geloscht werden.', 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function getCatalogShares(int $id): DataResponse {
+        if (!$this->access->canManageCatalog($id)) return $this->denied();
+        
+        try {
+            $shares = $this->access->catalogShares();
+            
+            // Filter shares for this catalog
+            $catalogShares = [
+                'users' => [],
+                'groups' => [],
+            ];
+            
+            foreach ($shares['users'] as $uid => $catalogRoles) {
+                if (isset($catalogRoles[$id])) {
+                    $catalogShares['users'][$uid] = $catalogRoles[$id];
+                }
+            }
+            
+            foreach ($shares['groups'] as $gid => $catalogRoles) {
+                if (isset($catalogRoles[$id])) {
+                    $catalogShares['groups'][$gid] = $catalogRoles[$id];
+                }
+            }
+            
+            $rawShares = $this->access->config->getAppValue('gefahrstoffkataster', 'catalog_shares_v1', '{}');
+            
+            return new DataResponse([
+                'shares' => $catalogShares,
+                'revision' => hash('sha256', $rawShares),
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalog-Freigaben konnten nicht geladen werden.', ['exception' => $e]);
+            return $this->fail('Katalog-Freigaben konnten nicht geladen werden.', 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function setCatalogShare(int $id): DataResponse {
+        if (!$this->access->canManageCatalog($id)) return $this->denied();
+        
+        try {
+            $action = (string)$this->request->getParam('action', '');
+            $type = (string)$this->request->getParam('type', '');
+            $targetId = (string)$this->request->getParam('target_id', '');
+            $role = (string)$this->request->getParam('role', '');
+            $revision = (string)$this->request->getParam('revision', '');
+            
+            if (!in_array($action, ['grant', 'revoke'], true)) {
+                return $this->fail('Ungueltige Aktion.');
+            }
+            
+            if (!in_array($type, ['user', 'group'], true)) {
+                return $this->fail('Ungueltiger Freigabetyp.');
+            }
+            
+            if ($action === 'grant' && $role === '') {
+                return $this->fail('Bitte eine Rolle angeben.');
+            }
+            
+            $result = $this->access->changeCatalogAccess($action, $type, $targetId, $id, $action === 'grant' ? $role : null, $revision);
+            
+            return new DataResponse($result);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalog-Freigabe konnte nicht geaendert werden.', ['exception' => $e]);
+            return $this->fail($e->getMessage(), 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function revokeCatalogShare(int $id): DataResponse {
+        if (!$this->access->canManageCatalog($id)) return $this->denied();
+        
+        try {
+            $type = (string)$this->request->getParam('type', '');
+            $targetId = (string)$this->request->getParam('target_id', '');
+            $revision = (string)$this->request->getParam('revision', '');
+            
+            if (!in_array($type, ['user', 'group'], true)) {
+                return $this->fail('Ungueltiger Freigabetyp.');
+            }
+            
+            $result = $this->access->changeCatalogAccess('revoke', $type, $targetId, $id, null, $revision);
+            
+            return new DataResponse($result);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Katalog-Freigabe konnte nicht widerrufen werden.', ['exception' => $e]);
+            return $this->fail($e->getMessage(), 500);
+        }
+    }
+
+    // ==================== Product Copy Between Catalogs ====================
+
+    #[NoAdminRequired]
+    public function copyProductToCatalog(int $productId, int $targetCatalogId): DataResponse {
+        // Check if user has read access to source product and write access to target catalog
+        $user = $this->session->getUser();
+        if (!$user) return $this->denied();
+        
+        try {
+            // Get source product
+            $sourceProduct = $this->one('gsk_product', $productId);
+            if (!$sourceProduct) {
+                return $this->fail('Quellprodukt nicht gefunden.', 404);
+            }
+            
+            $sourceCatalogId = (int)($sourceProduct['catalog_id'] ?? 0);
+            
+            // Check permissions
+            if ($sourceCatalogId > 0 && !$this->access->canReadCatalog($sourceCatalogId)) {
+                return $this->denied();
+            }
+            
+            if (!$this->access->canEditBasicInCatalog($targetCatalogId)) {
+                return $this->denied();
+            }
+            
+            // Start transaction if supported
+            $this->db->beginTransaction();
+            
+            try {
+                // Copy product
+                $newProductData = [
+                    'catalog_id' => $targetCatalogId,
+                    'details' => $sourceProduct['details'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ];
+                
+                $newProductId = $this->insertRow('gsk_product', $newProductData);
+                
+                // Copy associated files (SDB, photos)
+                $sourceFiles = $this->rows('gsk_file');
+                foreach ($sourceFiles as $file) {
+                    if ((int)$file['product_id'] === $productId) {
+                        $fileData = [
+                            'product_id' => $newProductId,
+                            'catalog_id' => $targetCatalogId,
+                            'kind' => $file['kind'],
+                            'filename' => $file['filename'],
+                            'mimetype' => $file['mimetype'] ?? '',
+                            'size' => $file['size'] ?? 0,
+                            'sha256' => $file['sha256'] ?? '',
+                            'storage_path' => $file['storage_path'] ?? '',
+                            'created_at' => date('Y-m-d H:i:s'),
+                        ];
+                        $this->insertRow('gsk_file', $fileData);
+                        
+                        // Note: Actual file copying in AppData would need to be implemented
+                        // For now, we just copy the database references
+                        // The files themselves are stored in appdata and would need to be copied
+                    }
+                }
+                
+                // Copy stock data (optional - for now we don't copy stock, just create empty product)
+                // This could be added as an option in the future
+                
+                $this->db->commit();
+                
+                return new DataResponse([
+                    'success' => true,
+                    'new_product_id' => $newProductId,
+                    'message' => 'Produkt erfolgreich in den Zielkatalog kopiert.',
+                ], 201);
+            } catch (\Throwable $e) {
+                $this->db->rollBack();
+                throw $e;
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Produkt konnte nicht kopiert werden.', ['exception' => $e]);
+            return $this->fail('Produkt konnte nicht kopiert werden: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[NoAdminRequired]
+    public function getCopyableProducts(int $sourceCatalogId): DataResponse {
+        // Get products from source catalog that user can read
+        if (!$this->access->canReadCatalog($sourceCatalogId)) return $this->denied();
+        
+        try {
+            $qb = $this->db->getQueryBuilder();
+            
+            $result = $qb->select('id', 'details')
+                ->from('gsk_product')
+                ->where($qb->expr()->eq('catalog_id', $qb->createNamedParameter($sourceCatalogId)))
+                ->executeQuery();
+            
+            $products = [];
+            while ($row = $result->fetchAssociative()) {
+                $details = json_decode($row['details'], true);
+                $products[] = [
+                    'id' => (int)$row['id'],
+                    'name' => $details['name'] ?? 'Unbekannt',
+                    'manufacturer' => $details['manufacturer'] ?? '',
+                    'article' => $details['article'] ?? '',
+                    'ean' => $details['ean'] ?? '',
+                ];
+            }
+            
+            return new DataResponse(['products' => $products]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Gefahrstoffkataster: Produkte konnten nicht geladen werden.', ['exception' => $e]);
+            return $this->fail('Produkte konnten nicht geladen werden.', 500);
         }
     }
 }

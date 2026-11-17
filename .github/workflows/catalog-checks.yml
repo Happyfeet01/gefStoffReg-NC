@@ -19,6 +19,7 @@ jobs:
           find lib templates appinfo tests -name '*.php' -print0 | xargs -0 -n1 php -l
           php tests/catalog-integration.php
           php tests/catalog-location-migration.php
+          php tests/catalog-defaults-migration.php
           php tests/access-policy.php
           php tests/role-protection.php
           php tests/external-shares.php

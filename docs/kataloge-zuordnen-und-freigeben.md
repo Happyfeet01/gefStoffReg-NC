@@ -50,6 +50,12 @@ erweitert. Auch für „Ohne Katalog“ lassen sich explizite Links erstellen.
 
 ## Update und Teststatus
 
+Version 0.1.36 ergänzt eine Folgemigration für früher angelegte `gsk_catalog`-
+Tabellen: Die Defaults von `created_at` und `updated_at` werden an das erwartete
+Schema angepasst. Vorhandene Zeitstempel bleiben erhalten. Nach dem Einspielen
+erneut das Nextcloud-App-Upgrade ausführen. Die Korrektur betrifft ausschließlich
+die beiden Katalogspalten; Schemawarnungen anderer Apps werden dadurch nicht behoben.
+
 Version 0.1.35 erneuert Nextclouds Cachekennung für die geänderten Skripte. Das
 Nextcloud-App-Upgrade ausführen, bevor die App wieder benutzt wird. Die Migration
 erlaubt gleiche Lagerortnamen in unterschiedlichen Katalogen; ein bisheriger

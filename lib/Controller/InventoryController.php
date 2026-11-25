@@ -262,6 +262,8 @@ class InventoryController extends Controller {
         if (!$this->permitted()) {
             return $this->denied();
         }
+        Util::addScript('gefahrstoffkataster', 'support-notice');
+        Util::addStyle('gefahrstoffkataster', 'support-notice');
         Util::addStyle('gefahrstoffkataster', 'style');
         // Keep an already deployed decoder optional; never request a missing script.
         if (is_file(__DIR__ . '/../../js/scanner.js')) Util::addScript('gefahrstoffkataster', 'scanner');

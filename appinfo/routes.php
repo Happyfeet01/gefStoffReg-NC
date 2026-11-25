@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 return ['routes' => [
+    ['name' => 'supportNotice#status', 'url' => '/support-notice', 'verb' => 'GET'],
+    ['name' => 'supportNotice#dismiss', 'url' => '/support-notice', 'verb' => 'POST'],
     ['name' => 'inventory#saveApiKey', 'url' => '/api/settings/key', 'verb' => 'POST'],
     ['name' => 'inventory#index', 'url' => '/', 'verb' => 'GET'],
     ['name' => 'inventory#bootstrap', 'url' => '/api/bootstrap', 'verb' => 'GET'],
